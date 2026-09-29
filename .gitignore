@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.env
+.env.*
+!.env.example
+.kaggle/
+.kaggle-run/
+kaggle.json
+access_token
+models/*
+!models/.gitkeep
+data/
+runs/
+captures/
+.DS_Store
