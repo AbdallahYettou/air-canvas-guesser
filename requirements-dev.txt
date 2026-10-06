@@ -1,3 +1,4 @@
 -r requirements.txt
 pytest>=8,<10
 kaggle>=1.7,<3
+six>=1.16,<2
