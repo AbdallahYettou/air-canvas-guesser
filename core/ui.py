@@ -68,7 +68,18 @@ def render(frame, canvas, game, now, gesture="idle", progress=0, points=None,
     message = game.message
     if not model_ready:
         message = "Practice mode: download the Kaggle model to unlock AI guesses."
-    text(screen, message[:100], (20, 699), 0.57, INK)
+    # Keep long help and error messages in the left column.
+    words, lines, line = message.split(), [], ""
+    for word in words:
+        candidate = f"{line} {word}".strip()
+        if cv2.getTextSize(candidate, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0][0] > 630:
+            lines.append(line)
+            line = word
+        else:
+            line = candidate
+    lines.append(line)
+    for index, line in enumerate(lines[:2]):
+        text(screen, line, (20, 684 + index * 23), 0.5, INK)
     labels = {"new": "New round [N]", "submit": "Guess [Enter]", "clear": "Clear [C]", "save": "Save [S]"}
     for action, (x, y, width, height) in BUTTONS.items():
         cv2.rectangle(screen, (x, y), (x + width, y + height), (64, 53, 44), -1)

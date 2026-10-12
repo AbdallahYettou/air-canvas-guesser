@@ -86,7 +86,8 @@ def main():
             camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         if predictor:
             worker = AsyncGuesser(predictor)
-        cv2.namedWindow(WINDOW, cv2.WINDOW_AUTOSIZE)
+        cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+        cv2.resizeWindow(WINDOW, 1188, 729)
         window_open = True
         cv2.setMouseCallback(WINDOW, mouse_event)
         if game.practice:

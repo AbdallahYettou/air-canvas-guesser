@@ -30,7 +30,7 @@ class Game:
         self.started = now
         self.state = "drawing"
         self.guesses = []
-        self.message = "Draw something!" if self.practice else "You have 30 seconds. Make it recognizable!"
+        self.message = "Draw something!" if self.practice else f"You have {self.seconds} seconds. Make it recognizable!"
 
     def remaining(self, now):
         return max(0.0, self.seconds - (now - self.started))
@@ -40,7 +40,7 @@ class Game:
             return False
         self.revision += 1
         self.guesses = []
-        self.message = "Fresh canvas. The timer keeps running."
+        self.message = "Fresh canvas." if self.practice else "Fresh canvas. The timer keeps running."
         return True
 
     def finish(self, guesses, error=None):

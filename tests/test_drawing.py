@@ -1,6 +1,6 @@
 import numpy as np
 from core.canvas import Canvas
-from core.gestures import Gesture, GestureController
+from core.gestures import Gesture, GestureController, classify_landmarks
 from core.preprocess import prepare_sketch, rasterize_strokes
 
 
@@ -62,3 +62,22 @@ def test_vector_strokes_stay_separate():
     image = rasterize_strokes([[[0, 10], [0, 0]], [[70, 80], [0, 0]]])
     assert image[12, 50] == 0
     assert prepare_sketch(image) is not None
+
+
+def test_landmark_rules_work_for_rotated_and_mirrored_hands():
+    def hand(extended):
+        points = np.zeros((21, 2))
+        for index, base in enumerate([5, 9, 13, 17]):
+            x = (index - 1.5) * 15
+            points[base] = (x, -40)
+            points[base + 1] = (x, -70)
+            points[base + 2] = (x, -85 if extended[index] else -40)
+            points[base + 3] = (x, -110 if extended[index] else -25)
+        return points
+    for flags, gesture in [([1, 0, 0, 0], Gesture.DRAW), ([1, 1, 0, 0], Gesture.MOVE),
+                           ([1, 1, 1, 1], Gesture.SUBMIT), ([0, 0, 0, 0], Gesture.CLEAR)]:
+        points = hand(flags)
+        assert classify_landmarks(points) == gesture
+        assert classify_landmarks(points * [-1, 1]) == gesture
+        assert classify_landmarks(points @ np.array([[0, -1], [1, 0]])) == gesture
+    assert classify_landmarks(None) == Gesture.IDLE

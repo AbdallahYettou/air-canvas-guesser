@@ -6,10 +6,11 @@ from urllib.request import urlopen
 
 URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 DESTINATION = Path(__file__).resolve().parents[1] / "models" / "hand_landmarker.task"
+SHA256 = "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1"
 
 
 def main():
-    if DESTINATION.is_file() and DESTINATION.stat().st_size > 1_000_000:
+    if DESTINATION.is_file() and hashlib.sha256(DESTINATION.read_bytes()).hexdigest() == SHA256:
         print(f"Hand model already exists: {DESTINATION}")
         return
     DESTINATION.parent.mkdir(exist_ok=True)
@@ -18,8 +19,8 @@ def main():
         with urlopen(URL, timeout=60) as response, temporary.open("wb") as output:
             while block := response.read(1024 * 1024):
                 output.write(block)
-        if temporary.stat().st_size < 1_000_000:
-            raise RuntimeError("The hand model download is incomplete")
+        if hashlib.sha256(temporary.read_bytes()).hexdigest() != SHA256:
+            raise RuntimeError("The hand model download failed its checksum check")
         temporary.replace(DESTINATION)
     finally:
         temporary.unlink(missing_ok=True)
