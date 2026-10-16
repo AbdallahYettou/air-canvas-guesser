@@ -14,6 +14,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 from core.model import SketchCNN
+from core.colors import PALETTE
 from core.preprocess import IMAGE_SIZE, PREPROCESS_VERSION, prepare_sketch, rasterize_strokes
 
 
@@ -21,13 +22,18 @@ def load_category(label, count, seed):
     url = f"https://storage.googleapis.com/quickdraw_dataset/full/simplified/{quote(label, safe='')}.ndjson"
     # Read a bounded prefix, then shuffle it. We do not claim a random global sample.
     images, ids, seen = [], [], set()
+    drawing_rng = np.random.default_rng(seed)
+    palette = list(PALETTE.values())
     with urlopen(url, timeout=90) as response:
         for line in response:
             record = json.loads(line)
             key = str(record["key_id"])
             if not record.get("recognized") or key in seen:
                 continue
-            image = prepare_sketch(rasterize_strokes(record["drawing"]))
+            colors = [palette[int(drawing_rng.integers(len(palette)))] for _ in record["drawing"]]
+            # Match the colored canvas path, with more variation in brush width.
+            image = prepare_sketch(rasterize_strokes(record["drawing"],
+                                   thickness=int(drawing_rng.choice([3, 5, 7])), colors=colors))
             if image is None:
                 continue
             seen.add(key)
@@ -129,7 +135,9 @@ def main():
     loss_fn = torch.nn.CrossEntropyLoss()
     best, start_epoch, history = -1.0, 0, []
     metadata = {"classes": classes, "image_size": IMAGE_SIZE, "preprocess_version": PREPROCESS_VERSION,
-                "seed": args.seed, "samples_per_class": args.samples, "architecture": "SketchCNN-v1"}
+                "seed": args.seed, "samples_per_class": args.samples, "architecture": "SketchCNN-v1",
+                "input_format": "grayscale-mask-or-BGRA-alpha", "brush_colors": list(PALETTE),
+                "training_brush_widths": [3, 5, 7]}
     if args.resume:
         saved = torch.load(args.resume, map_location="cpu", weights_only=True)
         for key in ["classes", "image_size", "preprocess_version", "seed", "samples_per_class"]:

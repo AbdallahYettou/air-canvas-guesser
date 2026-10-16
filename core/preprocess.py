@@ -4,15 +4,17 @@ import cv2
 import numpy as np
 
 IMAGE_SIZE = 64
-PREPROCESS_VERSION = 1
+PREPROCESS_VERSION = 2
 
 
 def prepare_sketch(canvas: np.ndarray, size: int = IMAGE_SIZE) -> np.ndarray | None:
-    """Return white ink on black, centered in a uint8 square; None for no ink."""
+    """Normalize a grayscale ink mask or BGRA strokes, ignoring brush color."""
     if canvas.ndim == 3:
-        canvas = np.max(canvas[:, :, :3], axis=2)
+        if canvas.shape[2] != 4:
+            raise ValueError("Color sketches need an alpha channel to distinguish black/white ink from the background")
+        canvas = canvas[:, :, 3]
     if canvas.ndim != 2 or not canvas.size:
-        raise ValueError("Expected a nonempty grayscale or color image")
+        raise ValueError("Expected a nonempty ink mask or BGRA sketch")
     ys, xs = np.nonzero(canvas > 8)
     if len(xs) == 0:
         return None
@@ -27,13 +29,14 @@ def prepare_sketch(canvas: np.ndarray, size: int = IMAGE_SIZE) -> np.ndarray | N
     return cv2.resize(square, (size, size), interpolation=cv2.INTER_AREA)
 
 
-def rasterize_strokes(strokes, thickness: int = 5) -> np.ndarray:
+def rasterize_strokes(strokes, thickness: int = 5, colors=None) -> np.ndarray:
     """Render Quick, Draw! simplified vectors without connecting separate strokes."""
-    canvas = np.zeros((280, 280), np.uint8)
-    for xs, ys, *_ in strokes:
+    canvas = np.zeros((280, 280, 4) if colors else (280, 280), np.uint8)
+    for index, (xs, ys, *_) in enumerate(strokes):
+        color = (*colors[index % len(colors)], 255) if colors else 255
         points = np.array(list(zip(xs, ys)), dtype=np.int32) + 12
         if len(points) == 1:
-            cv2.circle(canvas, tuple(points[0]), thickness // 2, 255, -1)
+            cv2.circle(canvas, tuple(points[0]), thickness // 2, color, -1)
         elif len(points) > 1:
-            cv2.polylines(canvas, [points], False, 255, thickness, cv2.LINE_AA)
+            cv2.polylines(canvas, [points], False, color, thickness, cv2.LINE_AA)
     return canvas
