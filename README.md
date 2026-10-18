@@ -1,6 +1,6 @@
 # Air-Canvas Guesser
 
-Draw with your index finger. Hold up your palm. See what the AI thinks it is.
+Pick a color, draw with your index finger, and click **Submit** to get a guess.
 
 A local desktop game using OpenCV, MediaPipe hand tracking, and a small PyTorch
 sketch classifier. No paid API. Webcam images stay on your computer. Only the
@@ -24,10 +24,9 @@ The tested Linux/Python 3.12 dependency versions are recorded in
 both install commands to reproduce that environment; the CPU PyTorch index is
 still needed for the second command.
 
-The environment, hand model, and trained sketch model are already installed in
-the current workspace. The first Kaggle run completed successfully: **93.2% top-1**
-and **98.3% top-3** on 8,000 held-out Quick, Draw! sketches. See
-[the recorded results](docs/training-results.json) for metrics and limitations.
+The environment and hand model are already installed in the current workspace.
+The rainbow update uses a new sketch checkpoint; the original model remains
+recorded in [the baseline results](docs/training-results.json).
 For a quick try, run `.venv/bin/python app.py`.
 
 On a fresh checkout, until the trained model is downloaded, the app opens in **practice mode**.
@@ -41,25 +40,34 @@ Use `--camera 1` to select another webcam, or `--practice` to remove the timer.
 Click **New round** or press **N**. You have 30 seconds to draw the displayed word.
 Hold your hand comfortably in view, with your palm facing the camera.
 
-| Action | Hand gesture | Keyboard |
+| Action | Onscreen / hand control | Keyboard |
 | --- | --- | --- |
 | Draw | Index finger extended, other fingers curled | Mouse drag with `--mouse` |
 | Move without drawing | Index and middle fingers extended | Release the mouse |
-| Guess | Hold open palm for 0.65 seconds | Enter |
-| Clear | Hold fist for 1.2 seconds | C |
+| Choose color | Click a color or point at it for 0.75 seconds | — |
+| Submit | Click **Submit** or point at it for 0.75 seconds | Enter |
+| Clear | Click **Clear** or point at it for 1 second | C |
 | New round | Use the button | N |
 | Save drawing | Use the button | S |
 | Quit | Close the window | Q or Escape |
 
+The palette has **red, orange, yellow, green, blue, indigo, violet, black, and white**.
+A gray board keeps both black and white ink visible. Your selected color is outlined.
+Controls appear directly over the camera view and accept mouse clicks in both modes.
+For touchless use, point with one or two extended fingers and hold over a control;
+the progress bar shows when it will activate. Move away before clicking it again.
+Toolbars do not draw ink. Open palms and fists now only pause; they never clear or submit.
+
 The timer also submits automatically. A correct first guess earns 100 points;
 the target appearing second or third earns 30. Each round scores once. Model
 percentages are softmax scores, not calibrated probabilities of being right.
-Clear works during drawing; after a guess, start a new round.
+Clear works during drawing; after a result it clears the board and starts another
+round. Clear and Submit are disabled while a guess is being processed.
 
 ## Get the trained model
 
 The private training job is
-[Air Canvas QuickDraw v1](https://www.kaggle.com/code/yettouabdallah/air-canvas-quickdraw-v1).
+[Air Canvas Rainbow v2](https://www.kaggle.com/code/yettouabdallah/air-canvas-rainbow-v2).
 With Kaggle authenticated locally:
 
 ```bash
@@ -69,7 +77,7 @@ python app.py
 ```
 
 Fetch validates the model before installing it. Weights go into the ignored
-[models folder](models/); training metrics and logs go into `runs/kaggle/`.
+[models folder](models/); training metrics and logs go into `runs/air-canvas-rainbow-v2/`.
 For another account or a new training run, see [the training notes](docs/training.md).
 
 ## Checks and troubleshooting

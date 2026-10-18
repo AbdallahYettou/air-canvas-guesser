@@ -39,23 +39,12 @@ def test_reposition_and_clear_do_not_connect_strokes():
     assert canvas.previous is None
 
 
-def test_submit_fires_once_per_hold_and_rearms_after_release():
+def test_drawing_is_debounced_and_tracking_loss_stops_ink():
     controller = GestureController()
-    assert controller.update(Gesture.SUBMIT, 0).action is None
-    assert controller.update(Gesture.SUBMIT, 0.7).action == Gesture.SUBMIT
-    assert controller.update(Gesture.SUBMIT, 2).action is None
-    controller.update(Gesture.IDLE, 3)
-    controller.update(Gesture.SUBMIT, 4)
-    assert controller.update(Gesture.SUBMIT, 4.7).action == Gesture.SUBMIT
-
-
-def test_brief_fist_does_not_clear_and_tracking_loss_stops_ink():
-    controller = GestureController()
-    controller.update(Gesture.CLEAR, 0)
-    assert controller.update(Gesture.CLEAR, 0.5).action is None
-    controller.update(Gesture.DRAW, 0.6)
+    assert not controller.update(Gesture.DRAW, 0.6).drawing
     assert controller.update(Gesture.DRAW, 0.8).drawing
     assert not controller.update(Gesture.IDLE, 0.81).drawing
+    assert not controller.update(Gesture.IDLE, 5).drawing
 
 
 def test_vector_strokes_stay_separate():
@@ -75,7 +64,7 @@ def test_landmark_rules_work_for_rotated_and_mirrored_hands():
             points[base + 3] = (x, -110 if extended[index] else -25)
         return points
     for flags, gesture in [([1, 0, 0, 0], Gesture.DRAW), ([1, 1, 0, 0], Gesture.MOVE),
-                           ([1, 1, 1, 1], Gesture.SUBMIT), ([0, 0, 0, 0], Gesture.CLEAR)]:
+                           ([1, 1, 1, 1], Gesture.IDLE), ([0, 0, 0, 0], Gesture.IDLE)]:
         points = hand(flags)
         assert classify_landmarks(points) == gesture
         assert classify_landmarks(points * [-1, 1]) == gesture

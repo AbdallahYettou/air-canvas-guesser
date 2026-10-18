@@ -1,13 +1,18 @@
 # Training on Kaggle
 
-The first model uses 20 categories, 4,000 recognized sketches per category,
+The model uses 20 categories, 4,000 recognized sketches per category,
 and eight epochs. It has 251,540 parameters. Expect roughly 15–30 minutes on
 a T4, plus queue/startup time. This is an estimate, not a measured guarantee.
 The log prints an updated estimate after every epoch.
 
-The first run has now completed: 211 seconds of measured processing on a Tesla T4,
+The original monochrome run completed in 211 seconds of measured processing on a Tesla T4,
 excluding queue/startup and final output publishing. It reached 93.2% held-out
 top-1 and 98.3% top-3 accuracy. See [the full results](training-results.json).
+
+The rainbow update trains a separate v2 checkpoint using colored strokes with
+an alpha channel and varying brush widths. All nine colors become the same
+shape mask before classification, so changing color cannot change a guess for
+otherwise identical strokes. This is still a 20-object classifier, not a color classifier.
 
 ## Run it
 
@@ -21,7 +26,7 @@ source .venv/bin/activate
 python scripts/kaggle_job.py prepare --username YOUR_USERNAME
 python scripts/kaggle_job.py push --username YOUR_USERNAME
 python scripts/kaggle_job.py status --username YOUR_USERNAME
-kaggle kernels logs YOUR_USERNAME/air-canvas-quickdraw-v1
+kaggle kernels logs YOUR_USERNAME/air-canvas-rainbow-v2
 ```
 
 The push creates or updates a **private** Kaggle script with a two-hour time limit.
@@ -49,7 +54,7 @@ Outputs:
 - `split_ids.json`: exact drawing IDs in each split.
 
 The fetch helper installs only a validated inference checkpoint into the local
-[models folder](../models/). The rest remains in ignored `runs/kaggle/`.
+[models folder](../models/). The rest remains in ignored `runs/air-canvas-rainbow-v2/`.
 
 ## How the data is handled
 
@@ -61,7 +66,8 @@ is evaluated only after training. Augmentation is applied only to training data.
 
 Both live drawings and training examples use the same bounding-box crop,
 square padding, 10% margin, and 64x64 grayscale representation. Training renders
-vectors with a five-pixel brush; mild rotation, scaling, translation, and stroke
+vectors with three-, five-, or seven-pixel brushes and random per-stroke palette
+colors, then extracts the alpha mask; mild rotation, scaling, translation, and stroke
 thickening help with variation. There is still a domain gap to air drawings.
 
 ## If a run is interrupted
