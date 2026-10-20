@@ -10,7 +10,10 @@ Git remote.
 - Separate Git repository for this project, isolated from the parent repository.
 - Python environment, CPU PyTorch, OpenCV, MediaPipe, and authenticated Kaggle CLI.
 - Verified pretrained hand model downloaded into the ignored models folder.
-- Webcam drawing, smoothing, deliberate gesture holds, and immediate stroke breaks.
+- Webcam drawing, smoothing, and immediate stroke breaks.
+- Nine brushes: seven rainbow colors, black, and white, on a neutral gray board.
+- Visible camera controls accept mouse clicks or fingertip hovering. Palms and fists
+  only pause drawing; Clear and Submit no longer have pose shortcuts.
 - Mouse practice, clickable controls, PNG export, and clean camera/worker shutdown.
 - Thirty-second rounds, automatic submission, top-three guesses, and scoring.
 - One background inference request at a time; old results cannot score a new round.
@@ -18,7 +21,8 @@ Git remote.
 
 ## Checked
 
-- 17 automated tests passed, including real CPU model loading and inference.
+- 25 automated tests passed, including real CPU model loading and inference,
+  color-independent input, mouse clicks, and simulated hand-hover control flows.
 - Desktop app opened under Xvfb, handled simulated mouse input, and exited cleanly.
 - Google hand model loaded and processed a blank frame successfully.
 - UI preview rendered and inspected.
@@ -32,7 +36,7 @@ Git remote.
 No human webcam playtest has been performed. Gesture comfort, lighting tolerance,
 and recognition accuracy on real air drawings still need hands-on checks.
 
-## Training handoff
+## Original training result
 
 Private job: [yettouabdallah/air-canvas-quickdraw-v1](https://www.kaggle.com/code/yettouabdallah/air-canvas-quickdraw-v1).
 Version 1 completed successfully, and its output is downloaded locally.
@@ -58,3 +62,25 @@ weights stay out of Git; a fresh checkout can use the fetch command in the READM
 
 If Kaggle reports ERROR, inspect its logs before starting another version. The
 source code and submission helper are already saved locally.
+
+## Rainbow update
+
+Private job: [Air Canvas Rainbow v2](https://www.kaggle.com/code/yettouabdallah/air-canvas-rainbow-v2).
+The UI and tests are committed. The v2 model uses an alpha mask so all nine brush
+colors preserve exactly the same shape information, including black and white.
+It is retrained with three-, five-, and seven-pixel strokes.
+
+The app falls back to drawing practice if the installed checkpoint predates the
+rainbow input format. Fetching the v2 output installs the matching model.
+
+The v2 job completed, and its trained model is installed locally. It achieved
+93.6375% top-1 and 98.4% top-3 on 8,000 held-out sketches, with 217 seconds of
+measured processing. See [rainbow-training-results.json](rainbow-training-results.json).
+The original model and recovery checkpoint remain in the original run outputs.
+
+Verified with the actual model: identical generated clock drawings in all nine
+colors produce identical predictions. A real OpenCV window under Xvfb accepted
+simulated mouse clicks on White and Submit, recognized the drawn clock, and
+awarded 100 points. Live human hand hovering still needs a hands-on playtest.
+
+Local update commits continue the requested schedule on October 16, 18, and 20.

@@ -24,9 +24,10 @@ The tested Linux/Python 3.12 dependency versions are recorded in
 both install commands to reproduce that environment; the CPU PyTorch index is
 still needed for the second command.
 
-The environment and hand model are already installed in the current workspace.
-The rainbow update uses a new sketch checkpoint; the original model remains
-recorded in [the baseline results](docs/training-results.json).
+The environment, hand model, and trained rainbow model are installed locally.
+The new model reached **93.6% top-1** and **98.4% top-3** accuracy on 8,000 held-out
+sketches. See [rainbow results](docs/rainbow-training-results.json); the original
+model remains recorded in [the baseline results](docs/training-results.json).
 For a quick try, run `.venv/bin/python app.py`.
 
 On a fresh checkout, until the trained model is downloaded, the app opens in **practice mode**.

@@ -14,6 +14,12 @@ an alpha channel and varying brush widths. All nine colors become the same
 shape mask before classification, so changing color cannot change a guess for
 otherwise identical strokes. This is still a 20-object classifier, not a color classifier.
 
+The v2 run completed in 217 seconds of measured processing on a Tesla T4:
+**93.6% top-1 / 98.4% top-3** on 8,000 held-out sketches. These sketches use the
+new varied-width rendering, so the baseline and v2 scores are not a controlled
+comparison. [The v2 results](rainbow-training-results.json) include a nine-color
+consistency check with the installed model.
+
 ## Run it
 
 Kaggle needs an authenticated account with GPU quota, Internet enabled, and any
