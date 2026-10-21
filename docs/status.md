@@ -2,7 +2,9 @@
 
 Actual work session: November 14, 2026. Local commit dates follow the user's requested
 September 29–October 21 milestone schedule; they are not the actual dates of Kaggle
-execution. No Git remote push has been made.
+execution. GitHub repository:
+[AbdallahYettou/air-canvas-guesser](https://github.com/AbdallahYettou/air-canvas-guesser)
+(private).
 
 ## Ready locally
 
