@@ -12,7 +12,7 @@ import time
 import cv2
 import numpy as np
 from core.canvas import Canvas
-from core.controls import CategoryBrowser, DwellPointer, PinchClick, PointerFilter
+from core.controls import CategoryBrowser, DwellPointer, PinchClick, PointerFilter, map_hand_point
 from core.detector import HandTracker
 from core.game import Game
 from core.gestures import Gesture, GestureController, pinch_ratio
@@ -125,6 +125,9 @@ def main():
                     raise RuntimeError('The camera stopped delivering frames. Reconnect it and restart.')
                 frame = cv2.flip(cv2.resize(frame, (640, 480)), 1)
                 gesture, point, points = tracker.detect(frame, now)
+                # Use the same mapping for ink and the control cursor, so the
+                # visible cursor and drawn strokes don't live in different spaces.
+                point = map_hand_point(point)
                 event = controller.update(gesture, now)
                 cursor = cursor_filter.update(point, now)
                 sticky = pointer.target if click_mode == 'hover' else pinch.target

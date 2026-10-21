@@ -1,6 +1,6 @@
 import numpy as np
 from core.canvas import Canvas
-from core.controls import CategoryBrowser, DwellPointer, PinchClick, PointerFilter, hit_test
+from core.controls import CategoryBrowser, DwellPointer, PinchClick, PointerFilter, hit_test, map_hand_point
 from core.game import Game
 from core.ui import CONTROLS, LEFT, control_at, camera_draw_area, control_enabled
 
@@ -101,3 +101,35 @@ def test_categories_page_only_through_installed_classes_and_buttons_disable():
     assert not control_enabled('undo', game, True, Canvas())
     game.state = 'submitting'
     assert not control_enabled('clear', game, True)
+
+
+def test_all_camera_buttons_are_reachable_without_moving_palm_off_frame():
+    for action, (x, y, width, height) in CONTROLS.items():
+        target = np.array([x + width / 2 - LEFT[0], y + height / 2 - LEFT[1]])
+        raw_tip = np.array([96, 60]) + target / [639, 479] * [448, 220]
+        # Representative upright hand: wrist 180 pixels below the fingertip.
+        assert raw_tip[1] + 180 < 480
+        assert 96 <= raw_tip[0] <= 544
+        assert raw_tip[1] < 250
+        cursor = map_hand_point(raw_tip)
+        assert control_at(LEFT[0] + cursor[0], LEFT[1] + cursor[1]) == action
+
+
+def test_hand_mapping_handles_tracking_loss_and_clamps_edges():
+    assert map_hand_point(None) is None
+    assert map_hand_point((np.nan, 100)) is None
+    assert map_hand_point((0, 0)) == (0, 0)
+    assert map_hand_point((640, 480)) == (639, 479)
+    np.testing.assert_allclose(map_hand_point((320, 170)), (319.5, 239.5))
+
+
+def test_category_browser_exposes_all_100_unique_labels_across_five_pages():
+    labels = [f'class-{i:03}' for i in range(100)]
+    browser = CategoryBrowser(labels)
+    found = []
+    for page in range(browser.pages):
+        assert browser.page == page
+        found.extend(browser.visible)
+        browser.turn(1)
+    assert found == labels
+    assert browser.pages == 5

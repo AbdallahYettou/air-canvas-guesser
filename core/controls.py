@@ -3,6 +3,22 @@
 import math
 import numpy as np
 
+# Raw fingertip space in a 640x480 camera frame. Leave room below the
+# fingertip for an upright palm instead of requiring a reach to the bottom edge.
+HAND_ACTIVE_RECT = (96, 60, 448, 220)
+
+
+def map_hand_point(point):
+    """Map a comfortable fingertip area to the full camera/canvas coordinate space."""
+    if point is None:
+        return None
+    point = np.asarray(point, dtype=float)
+    if point.shape != (2,) or not np.isfinite(point).all():
+        return None
+    left, top, width, height = HAND_ACTIVE_RECT
+    normalized = np.clip((point - [left, top]) / [width, height], 0, 1)
+    return tuple(normalized * [639, 479])
+
 
 def inside(x, y, rect, padding=0):
     left, top, width, height = rect

@@ -28,12 +28,21 @@ Before launch, on this machine with two CPU threads and a 64x64 input:
 | SketchResNet-v1 | 944,324 | 1.82 ms | 2.88 ms |
 
 These are 100 warm forward passes with untrained weights, excluding preprocessing
-and camera work. Verify actual inference again when the selected checkpoint arrives.
+and camera work.
 They are not hardware-independent performance guarantees.
+
+The comparison is complete. The selected residual model achieved 90.4425% test
+top-1 and 97.65% top-3, versus 78.795% / 91.8575% for the small CNN on the same
+40,000 test sketches. Validation top-1 was 90.33% versus 78.8475%.
+
+The installed, trained residual model measured 2.85 ms median / 3.63 ms p95 for
+100 warm CPU predictions including preprocessing, on a generated clock drawing.
+Its 100 labels were verified across all five browser pages. The full summary and
+checkpoint checksum are in [100-class-results.json](100-class-results.json).
 
 ## Run and fetch
 
-The active private job is
+The completed private job is
 [Air Canvas 100 Classes v3](https://www.kaggle.com/code/yettouabdallah/air-canvas-100-classes-v3).
 The CLI uses normal local Kaggle credentials; never put tokens in Git.
 

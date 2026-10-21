@@ -6,7 +6,7 @@ settings. Your webcam stays local, and guessing runs on the CPU.
 
 ## Run
 
-The environment and working 20-class model are already installed in this workspace:
+The environment and working **100-class model** are installed in this workspace:
 
 ```bash
 .venv/bin/python app.py
@@ -48,6 +48,11 @@ The buttons are larger, with a separately smoothed cursor and a little tolerance
 at their edges. Hover shows a progress ring. Brief tracking dropouts pause the
 hold instead of clicking; longer losses reset it. Move away after a click to rearm.
 
+Keep your hand upright in the **upper-middle of the camera view** and follow the
+onscreen cursor. A smaller fingertip movement now covers the control area, leaving
+room below your finger for your palm. The lower buttons have also moved upward.
+Drawing uses the same coordinate mapping as the cursor; mouse coordinates are unchanged.
+
 For **Pinch** mode, point at a button with your thumb and index finger separated,
 then pinch them together. Release before another click. Pinching only clicks UI
 controls; it never clears or submits based on a standalone hand pose. Mouse clicks
@@ -65,18 +70,22 @@ Weak or nearly tied predictions show **Not sure**. This is a conservative displa
 hint, not a guarantee that every unknown object will be detected. Scores are model
 probabilities, not certainty; the new model's temperature is fitted on validation data.
 
-## 100-class model: training in progress
+## 100-class model: installed
 
-The current installed model knows **20 classes**. The category browser reads the
-installed model, so it will not promise classes that are still being trained.
+The installed model knows **100 classes**. The category browser reads the model's
+actual labels and shows **24 per page across five pages**. Use Next / Previous;
+the footer shows the range and total (for example, `1-24 of 100`). The total is
+also visible above the drawing board. Restart an already-open app to load the new model.
 
 The [100-class list](training/classes.json) uses only the Google Quick, Draw!
 dataset. A private [Kaggle run](https://www.kaggle.com/code/yettouabdallah/air-canvas-100-classes-v3)
-compares the small CNN and a compact residual model on the same data and epoch
-budget. Both were checked for fast single-image CPU inference before launch.
-The final model is selected using validation accuracy, not the test set.
+compared the small CNN and a compact residual model on the same data and epoch
+budget. The residual model won on validation and achieved **90.4% top-1 / 97.7%
+top-3** on 40,000 held-out sketches; the small CNN reached 78.8% top-1. The model
+was selected using validation accuracy, not the test set. Local CPU prediction
+measured **2.9 ms median**, including preprocessing. See [recorded results](docs/100-class-results.json).
 
-When Kaggle reports COMPLETE:
+To install the completed model on a fresh checkout:
 
 ```bash
 source .venv/bin/activate

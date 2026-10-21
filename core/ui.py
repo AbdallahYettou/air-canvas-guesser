@@ -10,7 +10,7 @@ WIDTH, HEIGHT = 1320, 810
 LEFT, RIGHT = (20, 150, 640, 480), (680, 150, 620, 480)
 BUTTONS = {
     'new': (30, 160, 195, 72), 'undo': (240, 160, 195, 72), 'categories': (450, 160, 200, 72),
-    'clear': (30, 548, 195, 72), 'submit': (240, 548, 195, 72), 'save': (450, 548, 200, 72),
+    'clear': (30, 505, 195, 72), 'submit': (240, 505, 195, 72), 'save': (450, 505, 200, 72),
 }
 BROWSER_BUTTONS = {
     'previous': BUTTONS['clear'], 'next': BUTTONS['submit'], 'close': BUTTONS['save'],
@@ -58,7 +58,7 @@ def board_point(x, y):
 
 
 def camera_draw_area(point):
-    return point is not None and 0 <= point[0] < 640 and 100 <= point[1] < 385
+    return point is not None and 0 <= point[0] < 640 and 100 <= point[1] < 330
 
 
 def render(frame, canvas, game, now, gesture='idle', points=None, cursor=None, fps=0,
@@ -73,7 +73,7 @@ def render(frame, canvas, game, now, gesture='idle', points=None, cursor=None, f
     remaining = 'Paused' if browsing else 'No timer' if game.practice else f'{math.ceil(game.remaining(now))}s left' if game.state == 'drawing' else game.state.title()
     text(screen, f'{remaining}   |   Score {game.score}   |   Rounds {game.rounds}', (680, 82), 0.6, MUTED)
     text(screen, 'MOUSE CONTROLS' if mouse else f'CAMERA / {fps:.0f} fps / {click_mode.upper()} TO CLICK', (20, 132), 0.51, MUTED)
-    text(screen, f'{len(game.classes)} SUPPORTED CATEGORIES' if browsing else 'YOUR SKETCH', (680, 132), 0.55, MUTED)
+    text(screen, f'{len(game.classes)} CATEGORIES  /  {"BROWSING" if browsing else "YOUR SKETCH"}', (680, 132), 0.55, MUTED)
     if frame is None:
         camera = np.full((480, 640, 3), (41, 34, 30), np.uint8)
         text(camera, 'Draw on the white board', (65, 220), 0.8)
@@ -86,7 +86,9 @@ def render(frame, canvas, game, now, gesture='idle', points=None, cursor=None, f
     screen[150:630, 20:660] = camera
     screen[150:630, 680:1300] = cv2.resize(canvas.display(), (620, 480))
     cv2.rectangle(screen, (20, 150), (659, 244), (39, 33, 29), -1)
-    cv2.rectangle(screen, (20, 535), (659, 629), (39, 33, 29), -1)
+    cv2.rectangle(screen, (20, 492), (659, 629), (39, 33, 29), -1)
+    if not mouse:
+        text(screen, 'Keep your hand upper-middle; follow the cursor.', (35, 607), 0.49, MUTED)
     labels = {'new': 'New round', 'undo': 'Undo stroke', 'categories': 'Categories',
               'clear': 'Clear', 'submit': 'Submit', 'save': 'Save image',
               'previous': '< Previous', 'next': 'Next >', 'close': 'Back to drawing'}
@@ -103,7 +105,9 @@ def render(frame, canvas, game, now, gesture='idle', points=None, cursor=None, f
         for index, label in enumerate(browser.visible):
             col, row = index // 8, index % 8
             text(screen, label, (700 + col * 196, 230 + row * 42), 0.46)
-        text(screen, f'Page {browser.page + 1} / {browser.pages}  -  timer paused', (700, 610), 0.5, MUTED)
+        first = browser.page * browser.page_size + 1
+        last = min((browser.page + 1) * browser.page_size, len(browser.classes))
+        text(screen, f'{first}-{last} of {len(browser.classes)}  |  Page {browser.page + 1}/{browser.pages}  |  paused', (700, 610), 0.48, MUTED)
     if hover in controls:
         x, y, width, height = controls[hover]
         cv2.rectangle(screen, (x, y), (x + width, y + height), ACCENT, 3)
