@@ -1,6 +1,6 @@
 import numpy as np
 from core.canvas import Canvas
-from core.controls import CategoryBrowser, DwellPointer, PinchClick, PointerFilter, hit_test, map_hand_point
+from core.controls import CategoryBrowser, DwellPointer, PinchClick, hit_test
 from core.game import Game
 from core.ui import CONTROLS, LEFT, control_at, camera_draw_area, control_enabled
 
@@ -68,15 +68,6 @@ def test_sticky_edges_do_not_switch_to_neighbor_until_entered():
     assert hit_test((108, 30), controls) is None
 
 
-def test_pointer_smoothing_reduces_jitter_and_never_hides_tracking_loss():
-    pointer = PointerFilter()
-    pointer.update((100, 100), 0)
-    smoothed = pointer.update((110, 100), 0.016)
-    assert 100 < smoothed[0] < 105
-    assert pointer.update(None, 0.03) is None
-    assert pointer.update((500, 300), 1) == (500, 300)
-
-
 def test_pinch_requires_open_then_close_over_a_stable_button():
     click = PinchClick()
     assert click.update('submit', 0.2, 0) is None
@@ -106,21 +97,13 @@ def test_categories_page_only_through_installed_classes_and_buttons_disable():
 def test_all_camera_buttons_are_reachable_without_moving_palm_off_frame():
     for action, (x, y, width, height) in CONTROLS.items():
         target = np.array([x + width / 2 - LEFT[0], y + height / 2 - LEFT[1]])
-        raw_tip = np.array([96, 60]) + target / [639, 479] * [448, 220]
+        raw_tip = target
         # Representative upright hand: wrist 180 pixels below the fingertip.
         assert raw_tip[1] + 180 < 480
-        assert 96 <= raw_tip[0] <= 544
+        assert 80 <= raw_tip[0] <= 560
         assert raw_tip[1] < 250
-        cursor = map_hand_point(raw_tip)
+        cursor = raw_tip
         assert control_at(LEFT[0] + cursor[0], LEFT[1] + cursor[1]) == action
-
-
-def test_hand_mapping_handles_tracking_loss_and_clamps_edges():
-    assert map_hand_point(None) is None
-    assert map_hand_point((np.nan, 100)) is None
-    assert map_hand_point((0, 0)) == (0, 0)
-    assert map_hand_point((640, 480)) == (639, 479)
-    np.testing.assert_allclose(map_hand_point((320, 170)), (319.5, 239.5))
 
 
 def test_category_browser_exposes_all_100_unique_labels_across_five_pages():

@@ -44,14 +44,14 @@ An absent or incompatible model starts drawing practice without AI guesses.
 | Save | Save the visible black-and-white drawing as PNG | S |
 | Quit | Close the window | Q / Escape |
 
-The buttons are larger, with a separately smoothed cursor and a little tolerance
+The buttons are larger, with a little tolerance
 at their edges. Hover shows a progress ring. Brief tracking dropouts pause the
 hold instead of clicking; longer losses reset it. Move away after a click to rearm.
 
-Keep your hand upright in the **upper-middle of the camera view** and follow the
-onscreen cursor. A smaller fingertip movement now covers the control area, leaving
-room below your finger for your palm. The lower buttons have also moved upward.
-Drawing uses the same coordinate mapping as the cursor; mouse coordinates are unchanged.
+The cursor sits **directly on your detected fingertip**, with no coordinate
+stretching or cursor smoothing delay. Both button rows sit near the top of the
+camera view so you can reach them with your palm upright and still in frame.
+Draw below the controls. Stroke smoothing remains enabled for cleaner lines.
 
 For **Pinch** mode, point at a button with your thumb and index finger separated,
 then pinch them together. Release before another click. Pinching only clicks UI

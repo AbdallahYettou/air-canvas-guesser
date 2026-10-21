@@ -10,7 +10,7 @@ WIDTH, HEIGHT = 1320, 810
 LEFT, RIGHT = (20, 150, 640, 480), (680, 150, 620, 480)
 BUTTONS = {
     'new': (30, 160, 195, 72), 'undo': (240, 160, 195, 72), 'categories': (450, 160, 200, 72),
-    'clear': (30, 505, 195, 72), 'submit': (240, 505, 195, 72), 'save': (450, 505, 200, 72),
+    'clear': (30, 248, 195, 72), 'submit': (240, 248, 195, 72), 'save': (450, 248, 200, 72),
 }
 BROWSER_BUTTONS = {
     'previous': BUTTONS['clear'], 'next': BUTTONS['submit'], 'close': BUTTONS['save'],
@@ -58,7 +58,7 @@ def board_point(x, y):
 
 
 def camera_draw_area(point):
-    return point is not None and 0 <= point[0] < 640 and 100 <= point[1] < 330
+    return point is not None and 0 <= point[0] < 640 and 190 <= point[1] < 440
 
 
 def render(frame, canvas, game, now, gesture='idle', points=None, cursor=None, fps=0,
@@ -86,9 +86,10 @@ def render(frame, canvas, game, now, gesture='idle', points=None, cursor=None, f
     screen[150:630, 20:660] = camera
     screen[150:630, 680:1300] = cv2.resize(canvas.display(), (620, 480))
     cv2.rectangle(screen, (20, 150), (659, 244), (39, 33, 29), -1)
-    cv2.rectangle(screen, (20, 492), (659, 629), (39, 33, 29), -1)
+    cv2.rectangle(screen, (20, 244), (659, 331), (39, 33, 29), -1)
     if not mouse:
-        text(screen, 'Keep your hand upper-middle; follow the cursor.', (35, 607), 0.49, MUTED)
+        cv2.rectangle(screen, (20, 595), (659, 629), (39, 33, 29), -1)
+        text(screen, 'Cursor follows your fingertip. Controls are above.', (35, 618), 0.47, MUTED)
     labels = {'new': 'New round', 'undo': 'Undo stroke', 'categories': 'Categories',
               'clear': 'Clear', 'submit': 'Submit', 'save': 'Save image',
               'previous': '< Previous', 'next': 'Next >', 'close': 'Back to drawing'}

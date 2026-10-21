@@ -12,7 +12,7 @@ import time
 import cv2
 import numpy as np
 from core.canvas import Canvas
-from core.controls import CategoryBrowser, DwellPointer, PinchClick, PointerFilter, map_hand_point
+from core.controls import CategoryBrowser, DwellPointer, PinchClick
 from core.detector import HandTracker
 from core.game import Game
 from core.gestures import Gesture, GestureController, pinch_ratio
@@ -69,7 +69,7 @@ def main():
         print('No sketch model installed. Practice mode has no AI guesses.')
     game = Game(classes, practice=args.practice or predictor is None)
     browser = CategoryBrowser(classes)
-    controller, pointer, pinch, cursor_filter = GestureController(), DwellPointer(), PinchClick(), PointerFilter()
+    controller, pointer, pinch = GestureController(), DwellPointer(), PinchClick()
     click_mode = args.click_mode
     pointer_locked = False
     events = deque()
@@ -125,11 +125,9 @@ def main():
                     raise RuntimeError('The camera stopped delivering frames. Reconnect it and restart.')
                 frame = cv2.flip(cv2.resize(frame, (640, 480)), 1)
                 gesture, point, points = tracker.detect(frame, now)
-                # Use the same mapping for ink and the control cursor, so the
-                # visible cursor and drawn strokes don't live in different spaces.
-                point = map_hand_point(point)
                 event = controller.update(gesture, now)
-                cursor = cursor_filter.update(point, now)
+                # Keep the visible pointer exactly on the detected fingertip.
+                cursor = point
                 sticky = pointer.target if click_mode == 'hover' else pinch.target
                 hover = control_at(LEFT[0] + cursor[0], LEFT[1] + cursor[1], browser, sticky) if cursor else None
                 ratio = pinch_ratio(points)

@@ -107,14 +107,9 @@ def test_camera_hover_controls_do_not_draw_or_repeat_actions(tmp_path, monkeypat
             received.append(sketch)
             return [Guess('clock', 1.0)]
 
-    def physical(point):
-        # Simulated upright fingertips stay well above the bottom of the webcam.
-        x, y = point
-        return 96 + x / 639 * 448, 60 + y / 479 * 220
-
     def center(action):
         x, y, width, height = BUTTONS[action]
-        result = physical((x + width / 2 - LEFT[0], y + height / 2 - LEFT[1]))
+        result = (x + width / 2 - LEFT[0], y + height / 2 - LEFT[1])
         assert result[1] < 250
         return result
 
@@ -123,17 +118,22 @@ def test_camera_hover_controls_do_not_draw_or_repeat_actions(tmp_path, monkeypat
             pass
 
         def detect(self, frame, now):
+            result = self.pose(frame, now)
+            state['detected_tip'] = result[1]
+            return result
+
+        def pose(self, frame, now):
             number = state['frame']
             if number < 6:
                 return Gesture.MOVE, center('new'), None
             if number < 12:
-                return Gesture.MOVE, physical((210, 230)), None
+                return Gesture.MOVE, (210, 230), None
             if number < 19:
-                return Gesture.DRAW, physical((200 + number, 230)), None
+                return Gesture.DRAW, (200 + number, 230), None
             if number < 27:
                 return Gesture.MOVE, center('clear'), None
             if number < 34:
-                return Gesture.DRAW, physical((250 + number, 240)), None
+                return Gesture.DRAW, (250 + number, 240), None
             if number < 41:
                 # A palm/fist is classified IDLE, even when sitting over Clear.
                 return Gesture.IDLE, center('clear'), None
@@ -169,6 +169,7 @@ def test_camera_hover_controls_do_not_draw_or_repeat_actions(tmp_path, monkeypat
 
     def render(frame, canvas, game, now, **kwargs):
         number = state['frame']
+        assert kwargs['cursor'] == state['detected_tip'], 'Cursor moved away from the fingertip'
         if number == 11:
             assert not canvas.image.any(), 'Hovering over a toolbar drew ink'
             assert game.round_id == 1, 'Holding New round fired more than once'

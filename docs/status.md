@@ -8,11 +8,11 @@ execution. No Git remote push has been made.
 
 - Simple black ink on a white board; the color palette is removed.
 - Fixed brush size, as requested.
-- Larger buttons, a separately smoothed control cursor, sticky hit regions,
+- Larger buttons, a cursor directly on the detected fingertip, sticky hit regions,
   a hover progress ring, and short-dropout tolerance.
-- Comfortable reach mapping: raw fingertips in the upper-middle camera area
-  control the full canvas coordinate space. Lower buttons moved upward, so an
-  upright palm has room below the fingertip. Cursor and ink share this mapping.
+- Both button rows sit near the top of the camera view so an upright palm has
+  room below the fingertip. The previous coordinate stretching and cursor filter
+  were removed after hands-on feedback; stroke smoothing remains unchanged.
 - Optional Pinch click mode (P) with release-to-rearm behavior.
 - More tolerant two-finger Move detection, using 3D hand landmarks when available.
 - A visible pen-up state and a short transition guard against stray strokes.
@@ -24,7 +24,7 @@ execution. No Git remote push has been made.
 
 ## Verified
 
-- 37 automated tests pass, including both 100-class model architectures loading
+- 35 automated tests pass, including both 100-class model architectures loading
   and running a CPU forward pass, movement, dropouts, pinch edges, Undo, and UI flows.
 - A real OpenCV window under Xvfb accepted simulated clicks, browsed categories,
   drew a black clock, undid a stray stroke, submitted, and scored 100 points with

@@ -1,24 +1,6 @@
 """Stable pointing and deliberate clicks; drawing uses its own raw fingertip."""
 
 import math
-import numpy as np
-
-# Raw fingertip space in a 640x480 camera frame. Leave room below the
-# fingertip for an upright palm instead of requiring a reach to the bottom edge.
-HAND_ACTIVE_RECT = (96, 60, 448, 220)
-
-
-def map_hand_point(point):
-    """Map a comfortable fingertip area to the full camera/canvas coordinate space."""
-    if point is None:
-        return None
-    point = np.asarray(point, dtype=float)
-    if point.shape != (2,) or not np.isfinite(point).all():
-        return None
-    left, top, width, height = HAND_ACTIVE_RECT
-    normalized = np.clip((point - [left, top]) / [width, height], 0, 1)
-    return tuple(normalized * [639, 479])
-
 
 def inside(x, y, rect, padding=0):
     left, top, width, height = rect
@@ -33,31 +15,6 @@ def hit_test(point, controls, sticky=None):
         if direct is None or direct == sticky or not inside(*point, controls[direct], padding=-8):
             return sticky
     return direct
-
-
-class PointerFilter:
-    def __init__(self):
-        self.point = None
-        self.last_seen = None
-
-    def update(self, point, now):
-        if point is None or not np.isfinite(point).all():
-            if self.last_seen is not None and now - self.last_seen > 0.2:
-                self.point = None
-            return None
-        point = np.asarray(point, dtype=float)
-        if self.point is None or self.last_seen is None or now - self.last_seen > 0.2:
-            self.point = point.copy()
-        else:
-            distance = np.linalg.norm(point - self.point)
-            if distance > 160:
-                self.point = point.copy()
-            else:
-                tau = 0.035 if distance > 25 else 0.07
-                alpha = 1 - math.exp(-max(0, now - self.last_seen) / tau)
-                self.point += alpha * (point - self.point)
-        self.last_seen = now
-        return tuple(self.point)
 
 
 class DwellPointer:
