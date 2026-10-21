@@ -1,119 +1,181 @@
 # Air-Canvas Guesser
 
-Draw with one finger, move with two fingers, and click Submit. A local desktop
-Pictionary game with black ink on a white board. No color palette or brush-size
-settings. Your webcam stays local, and guessing runs on the CPU.
+A touchless Pictionary game: draw with your index finger and let a small neural
+network guess the sketch. The game runs locally with **CPU inference**, a webcam,
+and a clean black-and-white drawing board.
 
-## Run
+![Air-Canvas Guesser desktop preview](docs/images/preview.png)
 
-The environment and working **100-class model** are installed in this workspace:
+## Features
+
+- **100 sketch categories** trained on Google Quick, Draw!.
+- Larger **800 × 600 camera panel**, with a separate clean drawing board.
+- The cursor stays on your detected fingertip; two extended fingers lift the pen.
+- Visible controls work with mouse clicks, hover holds, or optional pinch clicks.
+- Undo, clear, PNG export, and a category browser that pauses the timer.
+- Thirty-second rounds, top-three guesses, scoring, and uncertainty feedback.
+- A small trained checkpoint is included, so playing does not require a Kaggle account.
+
+Webcam frames stay on your computer. After installing dependencies and downloading
+the hand tracker once, gameplay does not need an internet connection or a paid API.
+
+## Quick start
+
+Tested with **Python 3.12 on Linux**. You need a desktop session and a webcam;
+mouse mode works without a camera.
 
 ```bash
-.venv/bin/python app.py
-```
-
-Use `--mouse` to draw with a mouse, `--practice` to remove the timer, or
-`--camera 1` to try another webcam. Restart after downloading a new model.
-
-For a fresh setup with Python 3.12:
-
-```bash
+git clone https://github.com/AbdallahYettou/air-canvas-guesser.git
+cd air-canvas-guesser
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements-dev.txt
+python -m pip install -r requirements.txt
 python -m pip install -r requirements-cpu.txt
 python scripts/download_hand_model.py
+python app.py
 ```
 
-The [dependency lock](requirements-lock.txt) records the tested Linux/Python 3.12
-versions. Add `-c requirements-lock.txt` to both install commands to reproduce them.
-An absent or incompatible model starts drawing practice without AI guesses.
+On Windows, activate the environment with `.venv\Scripts\Activate.ps1` in
+PowerShell. Windows and macOS have not been tested; the pinned CPU installation
+recipe is intended for the tested Linux environment.
 
-## Controls
+The included [sketch checkpoint](models/quickdraw_cnn.pth) recognizes all 100
+categories. The download script obtains Google's pretrained hand tracker and
+checks its SHA-256. If the sketch checkpoint is missing or incompatible, the app
+opens in drawing practice mode and explains that AI guesses are unavailable.
 
-| Action | Hand / onscreen control | Shortcut |
+Useful launch options:
+
+```bash
+python app.py --fullscreen       # use the full display; F toggles it while playing
+python app.py --mouse            # draw with the mouse instead of a webcam
+python app.py --practice         # free drawing, without a timer or score
+python app.py --camera 1         # try a different camera
+python app.py --click-mode pinch # use pinch clicks on the visible controls
+```
+
+The window is resizable. Camera processing remains at 640 × 480 for responsive
+CPU operation; the preview is enlarged proportionally, with matching pointer and
+button coordinates.
+
+## How to play
+
+Click **New round**, draw the requested object, then click **Submit**. The timer
+also submits automatically. The first guess matching the target earns 100 points;
+a match in second or third place earns 30. Each round scores once.
+
+| Action | Hand / onscreen control | Keyboard |
 | --- | --- | --- |
-| Draw | Index finger extended; other fingers curled | Mouse drag in `--mouse` mode |
-| Move without ink | Index and middle fingers extended; lower fingers can relax | Release the mouse |
+| Draw | Extend your index finger; curl the other fingers | Mouse drag in mouse mode |
+| Move without ink | Extend index and middle fingers; lower fingers may relax | Release the mouse |
 | Submit | Click or hold over Submit | Enter |
 | Clear | Click or hold over Clear | C |
 | Undo | Undo the last stroke, or restore a cleared board | U |
 | New round | Click or hold over New round | N |
-| Categories | Browse what the installed model recognizes; timer pauses | B |
-| Click mode | Switch between Hover and Pinch | P |
-| Save | Save the visible black-and-white drawing as PNG | S |
+| Categories | Browse the model's labels; the timer pauses | B |
+| Click mode | Toggle Hover / Pinch | P |
+| Save drawing | Save the white board as a PNG | S |
+| Full screen | Toggle full-screen view | F |
 | Quit | Close the window | Q / Escape |
 
-The buttons are larger, with a little tolerance
-at their edges. Hover shows a progress ring. Brief tracking dropouts pause the
-hold instead of clicking; longer losses reset it. Move away after a click to rearm.
+Keep your palm upright and visible. Both button rows sit near the top of the
+camera view so you can reach them without pushing your palm out of frame.
+**Draw below the controls.** The cursor is attached directly to the detected
+fingertip; only the drawing strokes are smoothed.
 
-The cursor sits **directly on your detected fingertip**, with no coordinate
-stretching or cursor smoothing delay. Both button rows sit near the top of the
-camera view so you can reach them with your palm upright and still in frame.
-Draw below the controls. Stroke smoothing remains enabled for cleaner lines.
+Hovering fills a progress ring. Small movements near button edges are tolerated,
+and you must move away after a click before the same button can activate again.
+For Pinch mode, point at a button with your thumb and index finger separated, then
+pinch them together; release before the next click. Palms and fists only pause.
 
-For **Pinch** mode, point at a button with your thumb and index finger separated,
-then pinch them together. Release before another click. Pinching only clicks UI
-controls; it never clears or submits based on a standalone hand pose. Mouse clicks
-work in either mode. Palms and fists only pause drawing.
+Undo remembers up to 30 strokes/actions and resets between rounds. The category
+browser shows 24 labels per page across five pages, including ranges such as
+`1–24 of 100`. Weak or closely tied predictions display **Not sure**; this is a
+helpful hint, not a reliable detector for every object outside the trained classes.
 
-Move means **pen up**, not moving the existing picture. The status line explicitly
-shows `Move - pen up`. The pose rules use 3D hand landmarks when available and
-avoid drawing during brief transitions back from Move.
+## Model and results
 
-Undo keeps the last 30 strokes/actions and does not cross into an earlier round.
-A round lasts 30 seconds; the timer submits automatically. Top-1 earns 100 points,
-and the target in second or third place earns 30. Each round scores once.
+Only **Google Quick, Draw!** was used for sketch training: 100 classes and 4,000
+recognized drawings per class. A seeded split contains 320,000 training, 40,000
+validation, and 40,000 test sketches. The model was chosen on validation accuracy,
+then evaluated on the held-out test set. Training ran on a free Kaggle T4 GPU;
+local inference uses two CPU threads.
 
-Weak or nearly tied predictions show **Not sure**. This is a conservative display
-hint, not a guarantee that every unknown object will be detected. Scores are model
-probabilities, not certainty; the new model's temperature is fitted on validation data.
+| Model | Parameters | Test top-1 | Test top-3 |
+| --- | ---: | ---: | ---: |
+| Small CNN | 261,860 | 78.80% | 91.86% |
+| **Compact residual network (included)** | **944,324** | **90.44%** | **97.65%** |
 
-## 100-class model: installed
+A local check measured **2.85 ms median / 3.63 ms p95** per prediction, including
+cropping, padding, and resizing, across 100 warm predictions of a synthetic sketch.
+This excludes webcam tracking and rendering; it is not a hardware-independent
+performance guarantee. Probability temperature was fitted on validation data.
 
-The installed model knows **100 classes**. The category browser reads the model's
-actual labels and shows **24 per page across five pages**. Use Next / Previous;
-the footer shows the range and total (for example, `1-24 of 100`). The total is
-also visible above the drawing board. Restart an already-open app to load the new model.
+The dataset uses a bounded prefix of recognized drawings per class, not a random
+sample of the entire collection. Dataset accuracy does **not** measure real
+air-drawing accuracy. Lighting, hand position, stroke quality, and unfamiliar
+objects can affect the experience.
 
-The [100-class list](training/classes.json) uses only the Google Quick, Draw!
-dataset. A private [Kaggle run](https://www.kaggle.com/code/yettouabdallah/air-canvas-100-classes-v3)
-compared the small CNN and a compact residual model on the same data and epoch
-budget. The residual model won on validation and achieved **90.4% top-1 / 97.7%
-top-3** on 40,000 held-out sketches; the small CNN reached 78.8% top-1. The model
-was selected using validation accuracy, not the test set. Local CPU prediction
-measured **2.9 ms median**, including preprocessing. See [recorded results](docs/100-class-results.json).
+- [Full result summary and checkpoint checksum](docs/100-class-results.json)
+- [All 100 categories](training/classes.json)
+- [Kaggle training and recovery instructions](docs/training.md)
 
-To install the completed model on a fresh checkout:
+The original Kaggle run is private to its owner. Other users can play with the
+included checkpoint or train their own run using the supplied recipe.
 
-```bash
-source .venv/bin/activate
-python scripts/kaggle_job.py status --username yettouabdallah
-python scripts/kaggle_job.py fetch --username yettouabdallah
-python app.py
+## Project structure
+
+```text
+app.py                         Desktop game and camera loop
+core/                          Tracking, controls, canvas, game, UI, and inference
+models/quickdraw_cnn.pth       Included CPU-compatible sketch checkpoint
+scripts/download_hand_model.py Download and verify the pretrained hand tracker
+scripts/kaggle_job.py           Prepare, submit, inspect, and fetch Kaggle training
+training/                      Category list and reproducible training code
+tests/                         Automated regression tests
+docs/                          Results, training notes, and screenshots
 ```
 
-Fetching validates the checkpoint before replacing the local model. Data, model
-weights, credentials, and generated outputs stay out of Git. See
-[training notes](docs/training.md) and [current status](docs/status.md).
+The training script and local app share the same model definitions and sketch
+preprocessing. Guessing runs in a background worker, and results from an old
+round are discarded.
 
-## Check and troubleshoot
+## Development
 
 ```bash
-.venv/bin/python -m pytest -q
-.venv/bin/python app.py --preview captures/preview.png
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+python app.py --preview captures/preview.png
 ```
 
-- Close other camera apps if the camera cannot open; try `--camera 1` or `--mouse`.
-- Show one hand in good light. Start with your palm facing the camera.
-- If hovering feels difficult, try Pinch mode with P; keep the pointer within the button.
-- Run from a desktop terminal. A remote notebook cannot open this local GUI or webcam.
-- Dataset accuracy is not a measurement of real air-drawing accuracy. Live hand
-  comfort and recognition still need a human playtest.
+[requirements-lock.txt](requirements-lock.txt) records the tested Linux/Python 3.12
+environment. Add `-c requirements-lock.txt` to the dependency installation commands
+to reproduce it. Keep the CPU PyTorch index from `requirements-cpu.txt` when
+installing PyTorch.
+
+Only the small inference checkpoint is versioned. Datasets, credentials, the
+virtual environment, downloaded hand-model binaries, training recovery files,
+and user drawings are ignored by Git.
+
+## Troubleshooting
+
+- **Camera cannot open:** close other camera apps, check OS permissions, and try
+  `--camera 1`. Use `--mouse` to check the rest of the game independently.
+- **Tracking is unreliable:** use good lighting, show one hand, and keep the palm
+  facing the camera. Try Pinch mode with **P** if holding still is difficult.
+- **The window feels cramped:** maximize it or press **F** for full screen.
+- **No desktop display:** run in a desktop terminal. A remote notebook cannot open
+  this local OpenCV window or access your laptop's webcam. `--preview` is headless.
+- **The app still shows an old model or layout:** close and restart it after pulling
+  changes or replacing a checkpoint.
+- **Wrong guesses:** try a larger, simpler outline and check Categories to see
+  which objects the model recognizes.
 
 ## Credits
 
-- [Google Quick, Draw!](https://github.com/googlecreativelab/quickdraw-dataset), CC BY 4.0.
-- [MediaPipe Hand Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker).
-- [Kaggle CLI](https://github.com/Kaggle/kaggle-cli).
+- [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset),
+  licensed under **CC BY 4.0**, supplied the recognized vector sketches used in training.
+- [MediaPipe Hand Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker)
+  provides pretrained hand landmarks; no custom gesture model is required.
+- [OpenCV](https://opencv.org/), [PyTorch](https://pytorch.org/), and
+  [Kaggle](https://www.kaggle.com/) provide the drawing, inference, and training tools.

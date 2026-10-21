@@ -66,7 +66,9 @@ python app.py
 ```
 
 Files download to ignored `runs/air-canvas-100-classes-v3/`. The selected model is
-validated and installed into the ignored [models folder](../models/).
+validated and installed as [models/quickdraw_cnn.pth](../models/quickdraw_cnn.pth).
+This small inference checkpoint is included in Git for a runnable fresh checkout;
+other model downloads and recovery checkpoints remain ignored.
 
 Outputs include:
 

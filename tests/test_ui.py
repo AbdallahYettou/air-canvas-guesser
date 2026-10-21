@@ -2,7 +2,7 @@ import numpy as np
 from core.canvas import Canvas
 from core.controls import CategoryBrowser, DwellPointer, PinchClick, hit_test
 from core.game import Game
-from core.ui import CONTROLS, LEFT, control_at, camera_draw_area, control_enabled
+from core.ui import CONTROLS, LEFT, control_at, camera_draw_area, control_enabled, camera_to_screen, screen_to_camera, board_point, RIGHT, render
 
 
 def test_undo_restores_strokes_and_clear_but_does_not_cross_rounds():
@@ -40,7 +40,7 @@ def test_visible_controls_match_hit_regions_and_are_outside_drawing_area():
     for action, (x, y, width, height) in CONTROLS.items():
         center = x + width / 2, y + height / 2
         assert control_at(*center) == action
-        assert not camera_draw_area((center[0] - LEFT[0], center[1] - LEFT[1]))
+        assert not camera_draw_area(screen_to_camera(center))
     assert camera_draw_area((320, 200))
     assert not camera_draw_area(None)
 
@@ -96,14 +96,14 @@ def test_categories_page_only_through_installed_classes_and_buttons_disable():
 
 def test_all_camera_buttons_are_reachable_without_moving_palm_off_frame():
     for action, (x, y, width, height) in CONTROLS.items():
-        target = np.array([x + width / 2 - LEFT[0], y + height / 2 - LEFT[1]])
+        target = np.array(screen_to_camera((x + width / 2, y + height / 2)))
         raw_tip = target
         # Representative upright hand: wrist 180 pixels below the fingertip.
         assert raw_tip[1] + 180 < 480
         assert 80 <= raw_tip[0] <= 560
         assert raw_tip[1] < 250
         cursor = raw_tip
-        assert control_at(LEFT[0] + cursor[0], LEFT[1] + cursor[1]) == action
+        assert control_at(*camera_to_screen(cursor)) == action
 
 
 def test_category_browser_exposes_all_100_unique_labels_across_five_pages():
@@ -116,3 +116,26 @@ def test_category_browser_exposes_all_100_unique_labels_across_five_pages():
         browser.turn(1)
     assert found == labels
     assert browser.pages == 5
+
+
+def test_larger_camera_display_keeps_fingertip_and_hit_testing_aligned():
+    assert LEFT[2:] == (800, 600)
+    tip = (320, 240)
+    assert camera_to_screen(tip) == (420, 450)
+    np.testing.assert_allclose(screen_to_camera(camera_to_screen(tip)), tip)
+    for action, (x, y, width, height) in CONTROLS.items():
+        screen_point = (x + width / 2, y + height / 2)
+        raw_tip = screen_to_camera(screen_point)
+        assert control_at(*camera_to_screen(raw_tip)) == action
+    board_center = (RIGHT[0] + RIGHT[2] / 2, RIGHT[1] + RIGHT[3] / 2)
+    assert board_point(*board_center) == (320, 240)
+
+
+def test_render_expands_camera_without_changing_native_tracking_resolution():
+    canvas = Canvas()
+    game = Game(['clock'])
+    frame = np.full((480, 640, 3), (70, 100, 130), np.uint8)
+    screen = render(frame, canvas, game, 0, cursor=(320, 240))
+    assert screen.shape == (910, 1480, 3)
+    np.testing.assert_array_equal(screen[450, 420], frame[240, 320])
+    assert tuple(screen[450, 433]) != tuple(frame[240, 320])  # cursor ring on the displayed fingertip

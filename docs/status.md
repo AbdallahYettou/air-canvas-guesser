@@ -7,6 +7,8 @@ execution. No Git remote push has been made.
 ## Ready locally
 
 - Simple black ink on a white board; the color palette is removed.
+- Enlarged 800x600 camera panel with a shorter toolbar and more drawing room;
+  native tracking stays at 640x480. F toggles full screen.
 - Fixed brush size, as requested.
 - Larger buttons, a cursor directly on the detected fingertip, sticky hit regions,
   a hover progress ring, and short-dropout tolerance.
@@ -24,7 +26,7 @@ execution. No Git remote push has been made.
 
 ## Verified
 
-- 35 automated tests pass, including both 100-class model architectures loading
+- 37 automated tests pass, including both 100-class model architectures loading
   and running a CPU forward pass, movement, dropouts, pinch edges, Undo, and UI flows.
 - A real OpenCV window under Xvfb accepted simulated clicks, browsed categories,
   drew a black clock, undid a stray stroke, submitted, and scored 100 points with
@@ -34,6 +36,10 @@ execution. No Git remote push has been made.
   250 and a representative upright wrist 180 pixels below it, still inside the frame.
 - Python compilation and whitespace checks pass.
 - The new UI preview was rendered and inspected.
+- The enlarged window and full-screen toggle passed a real OpenCV/Xvfb round.
+- GitHub-ready README includes setup, controls, results, a preview, and credits.
+  The 3.8 MB inference checkpoint is included so new clones can play without the
+  owner's private Kaggle access. Datasets and credentials remain excluded.
 
 Live human hand comfort and real air-drawing recognition have not been measured.
 These fixes address code-level causes and have simulated-input coverage; the user's

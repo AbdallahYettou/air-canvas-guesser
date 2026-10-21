@@ -5,7 +5,7 @@ import time
 import cv2
 import app
 from core.guesser import Guess
-from core.ui import BUTTONS
+from core.ui import BUTTONS, RIGHT
 
 
 def test_mouse_can_clear_undo_browse_and_submit(tmp_path, monkeypatch):
@@ -51,11 +51,11 @@ def test_mouse_can_clear_undo_browse_and_submit(tmp_path, monkeypatch):
         if frame == 1:
             click("new")
         elif frame == 3:
-            state["callback"](cv2.EVENT_LBUTTONDOWN, 800, 350, cv2.EVENT_FLAG_LBUTTON, None)
+            state["callback"](cv2.EVENT_LBUTTONDOWN, RIGHT[0] + 120, RIGHT[1] + 200, cv2.EVENT_FLAG_LBUTTON, None)
         elif frame == 4:
-            state["callback"](cv2.EVENT_MOUSEMOVE, 840, 350, cv2.EVENT_FLAG_LBUTTON, None)
+            state["callback"](cv2.EVENT_MOUSEMOVE, RIGHT[0] + 160, RIGHT[1] + 200, cv2.EVENT_FLAG_LBUTTON, None)
         elif frame == 5:
-            state["callback"](cv2.EVENT_LBUTTONUP, 840, 350, 0, None)
+            state["callback"](cv2.EVENT_LBUTTONUP, RIGHT[0] + 160, RIGHT[1] + 200, 0, None)
         elif frame == 6:
             assert state["canvas"].image.any()
             click("clear")
@@ -87,7 +87,7 @@ def test_mouse_can_clear_undo_browse_and_submit(tmp_path, monkeypatch):
 
 def test_camera_hover_controls_do_not_draw_or_repeat_actions(tmp_path, monkeypatch):
     from core.gestures import Gesture
-    from core.ui import LEFT
+    from core.ui import screen_to_camera
     import numpy as np
 
     checkpoint = tmp_path / 'model.pth'
@@ -109,7 +109,7 @@ def test_camera_hover_controls_do_not_draw_or_repeat_actions(tmp_path, monkeypat
 
     def center(action):
         x, y, width, height = BUTTONS[action]
-        result = (x + width / 2 - LEFT[0], y + height / 2 - LEFT[1])
+        result = screen_to_camera((x + width / 2, y + height / 2))
         assert result[1] < 250
         return result
 

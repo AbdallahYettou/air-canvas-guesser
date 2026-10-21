@@ -17,7 +17,7 @@ from core.detector import HandTracker
 from core.game import Game
 from core.gestures import Gesture, GestureController, pinch_ratio
 from core.guesser import AsyncGuesser, SketchGuesser
-from core.ui import LEFT, board_point, camera_draw_area, control_at, control_enabled, render
+from core.ui import board_point, camera_to_screen, camera_draw_area, control_at, control_enabled, render
 
 ROOT = Path(__file__).resolve().parent
 WINDOW = 'Air-Canvas Guesser'
@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument('--mouse', action='store_true', help='Draw with the mouse; no webcam needed')
     parser.add_argument('--practice', action='store_true', help='Draw freely without a timer or score')
     parser.add_argument('--camera', type=int, default=0)
+    parser.add_argument('--fullscreen', action='store_true', help='Open the larger camera layout full screen (F toggles)')
     parser.add_argument('--click-mode', choices=['hover', 'pinch'], default='hover')
     parser.add_argument('--model', type=Path, default=ROOT / 'models/quickdraw_cnn.pth')
     parser.add_argument('--preview', type=Path, help='Save a sample UI without opening a window')
@@ -71,6 +72,7 @@ def main():
     browser = CategoryBrowser(classes)
     controller, pointer, pinch = GestureController(), DwellPointer(), PinchClick()
     click_mode = args.click_mode
+    fullscreen = args.fullscreen
     pointer_locked = False
     events = deque()
     mouse = {'point': None, 'down': False, 'hover': None}
@@ -106,7 +108,9 @@ def main():
         if predictor:
             worker = AsyncGuesser(predictor)
         cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
-        cv2.resizeWindow(WINDOW, 1188, 729)
+        cv2.resizeWindow(WINDOW, 1280, 787)
+        if fullscreen:
+            cv2.setWindowProperty(WINDOW, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         window_open = True
         cv2.setMouseCallback(WINDOW, mouse_event)
         if game.practice:
@@ -129,7 +133,7 @@ def main():
                 # Keep the visible pointer exactly on the detected fingertip.
                 cursor = point
                 sticky = pointer.target if click_mode == 'hover' else pinch.target
-                hover = control_at(LEFT[0] + cursor[0], LEFT[1] + cursor[1], browser, sticky) if cursor else None
+                hover = control_at(*camera_to_screen(cursor), browser, sticky) if cursor else None
                 ratio = pinch_ratio(points)
                 if hover is None:
                     pointer_locked = False
@@ -221,6 +225,10 @@ def main():
                             browser=browser, click_mode=click_mode, drawing=drawing)
             cv2.imshow(WINDOW, screen)
             key = cv2.waitKey(1) & 0xFF
+            if key == ord('f'):
+                fullscreen = not fullscreen
+                cv2.setWindowProperty(WINDOW, cv2.WND_PROP_FULLSCREEN,
+                                      cv2.WINDOW_FULLSCREEN if fullscreen else cv2.WINDOW_NORMAL)
             if key == 27 and browser.open:
                 events.append('close')
             elif key in [ord('q'), 27] or cv2.getWindowProperty(WINDOW, cv2.WND_PROP_VISIBLE) < 1:

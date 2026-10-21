@@ -11,6 +11,7 @@ kaggle.json
 access_token
 models/*
 !models/.gitkeep
+!models/quickdraw_cnn.pth
 data/
 runs/
 captures/
