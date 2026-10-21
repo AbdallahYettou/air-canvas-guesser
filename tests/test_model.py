@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import torch
 from core.guesser import SketchGuesser
-from core.model import SketchCNN
+from core.model import SketchCNN, create_model
 from core.preprocess import IMAGE_SIZE, PREPROCESS_VERSION
 
 
@@ -31,3 +31,18 @@ def test_incompatible_preprocessing_is_rejected(tmp_path):
     checkpoint(path, version=-1)
     with pytest.raises(ValueError, match="preprocessing"):
         SketchGuesser(path)
+
+
+@pytest.mark.parametrize("architecture", ["SketchCNN-v1", "SketchResNet-v1"])
+def test_100_class_architectures_load_and_predict(tmp_path, architecture):
+    classes = [f"class-{i}" for i in range(100)]
+    model = create_model(architecture, len(classes))
+    path = tmp_path / "model.pth"
+    torch.save({"architecture": architecture, "classes": classes, "temperature": 1.3,
+                "state_dict": model.state_dict(), "image_size": IMAGE_SIZE,
+                "preprocess_version": PREPROCESS_VERSION}, path)
+    guesser = SketchGuesser(path)
+    image = np.zeros((480, 640), np.uint8)
+    image[100:200, 200:210] = 255
+    assert len(guesser.predict(image)) == 3
+    assert guesser.classes == classes

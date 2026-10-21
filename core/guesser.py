@@ -16,7 +16,7 @@ class Guess:
 class SketchGuesser:
     def __init__(self, checkpoint_path):
         import torch
-        from core.model import SketchCNN
+        from core.model import create_model
 
         path = Path(checkpoint_path)
         if not path.is_file():
@@ -28,7 +28,11 @@ class SketchGuesser:
         self.classes = checkpoint["classes"]
         if not self.classes or len(set(self.classes)) != len(self.classes):
             raise ValueError("The sketch model has an invalid class list")
-        self.model = SketchCNN(len(self.classes))
+        self.architecture = checkpoint.get("architecture", "SketchCNN-v1")
+        self.temperature = float(checkpoint.get("temperature", 1.0))
+        if not np.isfinite(self.temperature) or self.temperature <= 0:
+            raise ValueError("Invalid model temperature")
+        self.model = create_model(self.architecture, len(self.classes))
         self.model.load_state_dict(checkpoint["state_dict"])
         self.model.eval()
 
@@ -40,8 +44,16 @@ class SketchGuesser:
             return []
         tensor = torch.from_numpy(image.astype(np.float32) / 255)[None, None]
         with torch.inference_mode():
-            scores, indices = self.model(tensor).softmax(dim=1)[0].topk(min(3, len(self.classes)))
+            scores, indices = (self.model(tensor) / self.temperature).softmax(dim=1)[0].topk(min(3, len(self.classes)))
         return [Guess(self.classes[int(i)], float(p)) for p, i in zip(scores, indices)]
+
+
+def is_uncertain(guesses):
+    """A conservative display hint, not an out-of-distribution detector."""
+    if not guesses:
+        return True
+    margin = guesses[0].score - guesses[1].score if len(guesses) > 1 else guesses[0].score
+    return guesses[0].score < 0.5 or margin < 0.15
 
 
 class AsyncGuesser:

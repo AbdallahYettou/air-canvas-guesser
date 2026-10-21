@@ -10,7 +10,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / ".kaggle-run"
-SLUG = "air-canvas-rainbow-v2"
+SLUG = "air-canvas-100-v3"
 
 
 def prepare(username):
@@ -20,7 +20,7 @@ def prepare(username):
     # Kaggle uploads the code_file, not the rest of our Python package. Bundle
     # the shared sources directly so inference and training cannot drift apart.
     sources = []
-    for relative in ["core/colors.py", "core/preprocess.py", "core/model.py", "training/train.py"]:
+    for relative in ["core/preprocess.py", "core/model.py", "training/train.py"]:
         source = (ROOT / relative).read_text()
         source = "\n".join(line for line in source.splitlines()
                            if not line.startswith("from core."))
@@ -31,7 +31,7 @@ def prepare(username):
     compile(code, "train.py", "exec")
     (BUILD / "train.py").write_text(code + "\n")
     metadata = {
-        "id": f"{username}/{SLUG}", "title": "Air Canvas Rainbow v2",
+        "id": f"{username}/{SLUG}", "title": "Air Canvas 100 Classes v3",
         "code_file": "train.py", "language": "python", "kernel_type": "script",
         "is_private": True, "enable_gpu": True, "enable_internet": True,
         "dataset_sources": [], "competition_sources": [], "kernel_sources": [],

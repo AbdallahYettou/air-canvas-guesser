@@ -5,7 +5,7 @@ from scripts import kaggle_job
 
 def test_kaggle_script_contains_shared_code_and_class_list(tmp_path, monkeypatch):
     monkeypatch.setattr(kaggle_job, "BUILD", tmp_path)
-    assert kaggle_job.prepare("test_user") == "test_user/air-canvas-rainbow-v2"
+    assert kaggle_job.prepare("test_user") == "test_user/air-canvas-100-v3"
     code = (tmp_path / "train.py").read_text()
     compile(code, "train.py", "exec")
     assert "from core." not in code
