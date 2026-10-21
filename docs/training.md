@@ -1,95 +1,89 @@
-# Training on Kaggle
+# Quick, Draw! training for CPU inference
 
-The model uses 20 categories, 4,000 recognized sketches per category,
-and eight epochs. It has 251,540 parameters. Expect roughly 15–30 minutes on
-a T4, plus queue/startup time. This is an estimate, not a measured guarantee.
-The log prints an updated estimate after every epoch.
+Training uses only Google's recognized Quick, Draw! vector sketches. The browser
+camera is not used as training data. Training runs on Kaggle's free T4 GPU; the
+desktop app uses CPU PyTorch with two threads.
 
-The original monochrome run completed in 211 seconds of measured processing on a Tesla T4,
-excluding queue/startup and final output publishing. It reached 93.2% held-out
-top-1 and 98.3% top-3 accuracy. See [the full results](training-results.json).
+## Current comparison
 
-The rainbow update trains a separate v2 checkpoint using colored strokes with
-an alpha channel and varying brush widths. All nine colors become the same
-shape mask before classification, so changing color cannot change a guess for
-otherwise identical strokes. This is still a 20-object classifier, not a color classifier.
+- 100 verified dataset categories, keeping the previous 20 at the start of the list.
+- 4,000 unique, nonempty, recognized drawings per category: 400,000 total.
+- Seeded per-class split: 320,000 train, 40,000 validation, 40,000 test.
+- Eight epochs each for `SketchCNN-v1` and `SketchResNet-v1`.
+- Same data, optimizer settings, augmentations, epoch budget, and validation selection.
+- Mixed precision on the GPU to shorten training; normal float32 CPU inference.
+- Choose the candidate with the best validation top-1. Evaluate the test set only
+  after that choice. Fit a scalar temperature on validation logits for display scores.
 
-The v2 run completed in 217 seconds of measured processing on a Tesla T4:
-**93.6% top-1 / 98.4% top-3** on 8,000 held-out sketches. These sketches use the
-new varied-width rendering, so the baseline and v2 scores are not a controlled
-comparison. [The v2 results](rainbow-training-results.json) include a nine-color
-consistency check with the installed model.
+The prefix sampling is bounded, not a random sample of the entire Quick, Draw!
+dataset. Exact drawing IDs are saved. Training uses three-, five-, and seven-pixel
+strokes plus mild rotation, scaling, translation, and thickening; the app brush
+remains fixed. Crop/pad/resize is shared between training and inference.
 
-## Run it
+Before launch, on this machine with two CPU threads and a 64x64 input:
 
-Kaggle needs an authenticated account with GPU quota, Internet enabled, and any
-account verification Kaggle requires. Use its free GPU allowance; no paid service
-is configured. The CLI reads credentials from its normal local locations. Never
-put a token in the repository or in a commit.
+| Architecture | Parameters (100 classes) | Median forward pass | p95 |
+| --- | ---: | ---: | ---: |
+| SketchCNN-v1 | 261,860 | 1.15 ms | 1.80 ms |
+| SketchResNet-v1 | 944,324 | 1.82 ms | 2.88 ms |
+
+These are 100 warm forward passes with untrained weights, excluding preprocessing
+and camera work. Verify actual inference again when the selected checkpoint arrives.
+They are not hardware-independent performance guarantees.
+
+## Run and fetch
+
+The active private job is
+[Air Canvas 100 Classes v3](https://www.kaggle.com/code/yettouabdallah/air-canvas-100-classes-v3).
+The CLI uses normal local Kaggle credentials; never put tokens in Git.
 
 ```bash
 source .venv/bin/activate
 python scripts/kaggle_job.py prepare --username YOUR_USERNAME
 python scripts/kaggle_job.py push --username YOUR_USERNAME
 python scripts/kaggle_job.py status --username YOUR_USERNAME
-kaggle kernels logs YOUR_USERNAME/air-canvas-rainbow-v2
+kaggle kernels logs YOUR_USERNAME/air-canvas-100-classes-v3
 ```
 
-The push creates or updates a **private** Kaggle script with a two-hour time limit.
-It uploads a generated single-file bundle of [preprocessing](../core/preprocess.py),
-[the model](../core/model.py), and [the training loop](../training/train.py).
-Kaggle does not automatically receive neighboring source files. The generated
-bundle and account-specific metadata live in the ignored `.kaggle-run/` folder.
+The helper uploads a self-contained script generated from the shared model,
+preprocessing, and training sources. It requests a free T4 with a two-hour limit.
+Do not push again just to check progress: that starts another version.
 
-Check status before pushing again: pushing an existing slug starts another version.
-An empty CLI log does not necessarily mean the run has stalled; check the Kaggle page.
-
-## Download when complete
+When COMPLETE:
 
 ```bash
 python scripts/kaggle_job.py fetch --username YOUR_USERNAME
 python app.py
 ```
 
-Outputs:
+Files download to ignored `runs/air-canvas-100-classes-v3/`. The selected model is
+validated and installed into the ignored [models folder](../models/).
 
-- `quickdraw_cnn.pth`: best validation model, labels, and preprocessing version.
-- `last_checkpoint.pth`: model, optimizer, best weights, epoch, and random states.
-- `history.json`: losses, validation scores, and epoch durations.
-- `metrics.json`: final held-out top-1/top-3, confusion matrix, device, and versions.
-- `split_ids.json`: exact drawing IDs in each split.
+Outputs include:
 
-The fetch helper installs only a validated inference checkpoint into the local
-[models folder](../models/). The rest remains in ignored `runs/air-canvas-rainbow-v2/`.
+- `quickdraw_cnn.pth`: selected model, 100 labels, architecture, and temperature.
+- `metrics.json` and `comparison.json`: held-out metrics and both candidates' results.
+- `split_ids.json`: the exact IDs used in each split.
+- One subfolder per architecture with `best.pth`, `last_checkpoint.pth`,
+  `history.json`, and `summary.json`.
 
-## How the data is handled
+## Recovery
 
-For each category, download only the first 4,000 unique recognized nonempty
-vector sketches, shuffle with seed 42 plus the category index, and split 80/10/10
-into train/validation/test. This is a bounded prefix sample, not a random sample
-of the entire dataset. Validation chooses the checkpoint; the held-out test set
-is evaluated only after training. Augmentation is applied only to training data.
+Each epoch atomically saves model/optimizer/scheduler/scaler state, the best weights,
+random states, and progress. Kaggle must still preserve/publish the output for you
+to retrieve it; checkpoints cannot guarantee recovery after a platform termination.
 
-Both live drawings and training examples use the same bounding-box crop,
-square padding, 10% margin, and 64x64 grayscale representation. Training renders
-vectors with three-, five-, or seven-pixel brushes and random per-stroke palette
-colors, then extracts the alpha mask; mild rotation, scaling, translation, and stroke
-thickening help with variation. There is still a domain gap to air drawings.
-
-## If a run is interrupted
-
-Each epoch saves a recovery checkpoint and the best inference model atomically.
-Kaggle must still preserve/publish the run's output for you to retrieve it; local
-checkpoint writes cannot guarantee recovery after a platform termination.
-
-If the last checkpoint is available, attach it as a private Kaggle input, use
-the generated training script there, and run with:
+To recover one candidate, attach its checkpoint as a private Kaggle input and run
+the generated training script in a GPU session, keeping the sample count, seed,
+class list, and total epoch count unchanged:
 
 ```bash
-python train.py --resume /kaggle/input/YOUR_CHECKPOINT/last_checkpoint.pth --epochs 8
+python train.py --architectures SketchResNet-v1 --epochs 8 --resume /kaggle/input/YOUR_INPUT/last_checkpoint.pth
 ```
 
-Keep the seed, sample count, class list, and preprocessing unchanged. `--epochs`
-means the total epoch count, not extra epochs. Resumption downloads the same
-bounded data again and restores training state. Training deliberately refuses to
-run outside a Kaggle GPU session.
+Recovery with a single architecture reports that candidate only. Do not interpret
+it as a new two-model comparison. The dataset is downloaded again deterministically.
+
+The historical 20-class results remain in [baseline results](training-results.json)
+and [the second run](rainbow-training-results.json). Their accuracies do not directly
+compare with the harder 100-class task.

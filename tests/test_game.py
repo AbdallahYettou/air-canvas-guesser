@@ -46,3 +46,21 @@ def test_new_round_invalidates_an_old_request_and_error_does_not_score():
     game.finish([], "Model failed")
     assert game.score == 0
     assert game.message == "Model failed"
+
+
+def test_category_browser_pause_preserves_remaining_time():
+    game = Game(["clock"])
+    game.start(100)
+    game.pause(110)
+    assert game.remaining(200) == 20
+    game.resume(200)
+    assert game.remaining(205) == 15
+
+
+def test_weak_predictions_are_explicitly_uncertain():
+    game = Game(["clock"])
+    game.start(0)
+    game.state = "submitting"
+    game.finish([Guess("clock", 0.3), Guess("moon", 0.28)])
+    assert game.uncertain
+    assert "Not sure" in game.message

@@ -1,21 +1,22 @@
-"""Visible camera controls shared by mouse clicks and fingertip hovering."""
+"""A simple monochrome board with large, visible hand controls."""
 
 import math
 import cv2
 import numpy as np
-from core.colors import PALETTE
+from core.controls import inside, hit_test, DwellPointer
 from core.detector import draw_landmarks
 
 WIDTH, HEIGHT = 1320, 810
-LEFT = (20, 150, 640, 480)
-RIGHT = (680, 150, 620, 480)
+LEFT, RIGHT = (20, 150, 640, 480), (680, 150, 620, 480)
 BUTTONS = {
-    "new": (30, 567, 145, 48), "clear": (185, 567, 145, 48),
-    "submit": (340, 567, 155, 48), "save": (505, 567, 145, 48),
+    'new': (30, 160, 195, 72), 'undo': (240, 160, 195, 72), 'categories': (450, 160, 200, 72),
+    'clear': (30, 548, 195, 72), 'submit': (240, 548, 195, 72), 'save': (450, 548, 200, 72),
 }
-SWATCHES = {f"color:{name}": (30 + i * 69, 162, 60, 62)
-            for i, name in enumerate(PALETTE)}
-CONTROLS = {**SWATCHES, **BUTTONS}
+BROWSER_BUTTONS = {
+    'previous': BUTTONS['clear'], 'next': BUTTONS['submit'], 'close': BUTTONS['save'],
+}
+MODE_BUTTON = (20, 744, 220, 42)
+CONTROLS = BUTTONS
 BG, INK, MUTED, ACCENT = (27, 22, 20), (240, 242, 245), (170, 161, 151), (160, 224, 100)
 
 
@@ -23,21 +24,30 @@ def text(image, value, xy, scale=0.6, color=INK, thickness=1):
     cv2.putText(image, str(value), xy, cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness, cv2.LINE_AA)
 
 
-def inside(x, y, rect):
-    left, top, width, height = rect
-    return left <= x < left + width and top <= y < top + height
+def controls_for(browser=None):
+    if browser is not None and browser.open:
+        return {'categories': BUTTONS['categories'], **BROWSER_BUTTONS}
+    return BUTTONS
 
 
-def control_at(x, y):
-    return next((action for action, rect in CONTROLS.items() if inside(x, y, rect)), None)
+def control_at(x, y, browser=None, sticky=None):
+    if inside(x, y, MODE_BUTTON):
+        return 'mode'
+    return hit_test((x, y), controls_for(browser), sticky)
 
 
-def control_enabled(action, game, model_ready):
-    if action == "submit":
-        return model_ready and game.state == "drawing"
-    if action == "clear":
-        return game.state != "submitting"
-    return True
+def control_enabled(action, game, model_ready, canvas=None, browser=None):
+    if action == 'submit':
+        return model_ready and game.state == 'drawing'
+    if action == 'clear':
+        return game.state != 'submitting'
+    if action == 'undo':
+        return game.state == 'drawing' and (canvas is None or bool(canvas.history))
+    if action == 'previous':
+        return browser is not None and browser.page > 0
+    if action == 'next':
+        return browser is not None and browser.page + 1 < browser.pages
+    return action is not None
 
 
 def board_point(x, y):
@@ -48,90 +58,70 @@ def board_point(x, y):
 
 
 def camera_draw_area(point):
-    # Reserve both toolbars, including the gaps between buttons, for controls.
-    return point is not None and 0 <= point[0] < 640 and 90 <= point[1] < 400
+    return point is not None and 0 <= point[0] < 640 and 100 <= point[1] < 385
 
 
-class DwellPointer:
-    """One activation per visit; moving away or losing tracking resets the hold."""
-    def __init__(self):
-        self.target = None
-        self.since = 0.0
-        self.fired = False
-        self.progress = 0.0
-
-    def update(self, target, now):
-        if target != self.target:
-            self.target, self.since, self.fired = target, now, False
-        self.progress = 0.0
-        if target is None:
-            return None
-        duration = 1.0 if target == "clear" else 0.75
-        self.progress = min(1.0, max(0.0, (now - self.since) / duration))
-        if self.progress >= 1 and not self.fired:
-            self.fired = True
-            return target
-        return None
-
-
-def render(frame, canvas, game, now, gesture="idle", points=None,
-           cursor=None, fps=0, mouse=False, model_ready=False, hover=None, progress=0):
+def render(frame, canvas, game, now, gesture='idle', points=None, cursor=None, fps=0,
+           mouse=False, model_ready=False, hover=None, progress=0, browser=None,
+           click_mode='hover', drawing=False):
     screen = np.full((HEIGHT, WIDTH, 3), BG, np.uint8)
-    text(screen, "AIR CANVAS", (20, 42), 1.0, ACCENT, 2)
-    text(screen, "Pick a color. Draw something. Click Submit.", (20, 75), 0.59, MUTED)
-    target = "Free drawing" if game.practice else f"Draw: {game.target}" if game.target else "Ready to draw?"
-    text(screen, target, (680, 48), 1.0, INK, 2)
-    remaining = "No timer" if game.practice else f"{math.ceil(game.remaining(now))}s left" if game.state == "drawing" else game.state.title()
-    text(screen, f"{remaining}   |   Score {game.score}   |   Rounds {game.rounds}", (680, 82), 0.6, MUTED)
-    text(screen, "CLICK A COLOR OR BUTTON" if mouse else f"CAMERA / {fps:.0f} fps / HOVER TO CLICK", (20, 132), 0.51, MUTED)
-    text(screen, f"YOUR SKETCH  /  {canvas.color_name.upper()} INK", (680, 132), 0.55, MUTED)
+    text(screen, 'AIR CANVAS', (20, 42), 1.0, ACCENT, 2)
+    text(screen, 'Draw. Move without ink. Click Submit.', (20, 75), 0.59, MUTED)
+    target = 'Free drawing' if game.practice else f'Draw: {game.target}' if game.target else 'Ready to draw?'
+    text(screen, target, (680, 48), 0.9, INK, 2)
+    browsing = browser is not None and browser.open
+    remaining = 'Paused' if browsing else 'No timer' if game.practice else f'{math.ceil(game.remaining(now))}s left' if game.state == 'drawing' else game.state.title()
+    text(screen, f'{remaining}   |   Score {game.score}   |   Rounds {game.rounds}', (680, 82), 0.6, MUTED)
+    text(screen, 'MOUSE CONTROLS' if mouse else f'CAMERA / {fps:.0f} fps / {click_mode.upper()} TO CLICK', (20, 132), 0.51, MUTED)
+    text(screen, f'{len(game.classes)} SUPPORTED CATEGORIES' if browsing else 'YOUR SKETCH', (680, 132), 0.55, MUTED)
     if frame is None:
         camera = np.full((480, 640, 3), (41, 34, 30), np.uint8)
-        text(camera, "Pick a color above", (115, 205), 0.8)
-        text(camera, "Then click and drag on the drawing board", (35, 250), 0.6, MUTED)
-        text(camera, "Clear and Submit are right below", (65, 290), 0.6, MUTED)
+        text(camera, 'Draw on the white board', (65, 220), 0.8)
+        text(camera, 'Undo keeps a small mistake from ruining a round.', (25, 265), 0.52, MUTED)
     else:
         camera = frame.copy()
         draw_landmarks(camera, points)
-        alpha = canvas.ink[:, :, 3:4].astype(np.float32) / 255
-        camera = np.clip(camera * (1 - alpha) + canvas.ink[:, :, :3], 0, 255).astype(np.uint8)
+        alpha = canvas.image[:, :, None].astype(np.float32) / 255
+        camera = np.clip(camera * (1 - alpha) + np.array(ACCENT) * alpha, 0, 255).astype(np.uint8)
     screen[150:630, 20:660] = camera
     screen[150:630, 680:1300] = cv2.resize(canvas.display(), (620, 480))
-    # Solid toolbar backgrounds keep the controls legible over any webcam scene.
-    cv2.rectangle(screen, (20, 150), (659, 237), (39, 33, 29), -1)
-    cv2.rectangle(screen, (20, 552), (659, 629), (39, 33, 29), -1)
-    for action, (x, y, width, height) in SWATCHES.items():
-        name = action.split(":", 1)[1]
-        selected = name == canvas.color_name
-        if selected:
-            cv2.rectangle(screen, (x, y), (x + width, y + height), ACCENT, 2)
-        cv2.circle(screen, (x + width // 2, y + 23), 17, PALETTE[name], -1, cv2.LINE_AA)
-        cv2.circle(screen, (x + width // 2, y + 23), 17, (150, 150, 150), 1, cv2.LINE_AA)
-        label_width = cv2.getTextSize(name, cv2.FONT_HERSHEY_SIMPLEX, 0.34, 1)[0][0]
-        text(screen, name, (x + (width - label_width) // 2, y + 53), 0.34, ACCENT if selected else INK)
-    labels = {"new": "New round", "submit": "Submit", "clear": "Clear", "save": "Save image"}
-    for action, (x, y, width, height) in BUTTONS.items():
-        enabled = control_enabled(action, game, model_ready)
-        fill = (65, 116, 48) if action == "submit" and enabled else (64, 53, 44) if enabled else (44, 42, 39)
+    cv2.rectangle(screen, (20, 150), (659, 244), (39, 33, 29), -1)
+    cv2.rectangle(screen, (20, 535), (659, 629), (39, 33, 29), -1)
+    labels = {'new': 'New round', 'undo': 'Undo stroke', 'categories': 'Categories',
+              'clear': 'Clear', 'submit': 'Submit', 'save': 'Save image',
+              'previous': '< Previous', 'next': 'Next >', 'close': 'Back to drawing'}
+    controls = controls_for(browser)
+    for action, (x, y, width, height) in controls.items():
+        enabled = control_enabled(action, game, model_ready, canvas, browser)
+        fill = (65, 116, 48) if action == 'submit' and enabled else (64, 53, 44) if enabled else (44, 42, 39)
         cv2.rectangle(screen, (x, y), (x + width, y + height), fill, -1)
         label_width = cv2.getTextSize(labels[action], cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)[0][0]
-        text(screen, labels[action], (x + (width - label_width) // 2, y + 31), 0.6, INK if enabled else MUTED)
-    if hover in CONTROLS:
-        x, y, width, height = CONTROLS[hover]
-        cv2.rectangle(screen, (x, y), (x + width, y + height), ACCENT, 2)
+        text(screen, labels[action], (x + (width - label_width) // 2, y + 44), 0.6, INK if enabled else MUTED)
+    if browsing:
+        screen[150:630, 680:1300] = (42, 36, 31)
+        text(screen, 'What I can recognize', (700, 188), 0.7, ACCENT)
+        for index, label in enumerate(browser.visible):
+            col, row = index // 8, index % 8
+            text(screen, label, (700 + col * 196, 230 + row * 42), 0.46)
+        text(screen, f'Page {browser.page + 1} / {browser.pages}  -  timer paused', (700, 610), 0.5, MUTED)
+    if hover in controls:
+        x, y, width, height = controls[hover]
+        cv2.rectangle(screen, (x, y), (x + width, y + height), ACCENT, 3)
         if progress:
-            cv2.rectangle(screen, (x, y + height - 4), (x + int(width * progress), y + height), ACCENT, -1)
+            cv2.rectangle(screen, (x, y + height - 5), (x + int(width * progress), y + height), ACCENT, -1)
     if cursor is not None and not mouse:
         center = (int(LEFT[0] + cursor[0]), int(LEFT[1] + cursor[1]))
         if inside(*center, LEFT):
-            cv2.circle(screen, center, 11, (0, 0, 0), 4, cv2.LINE_AA)
-            cv2.circle(screen, center, 11, ACCENT, 2, cv2.LINE_AA)
-    status = "Mouse drawing" if mouse else "Drawing" if gesture == "draw" and hover is None else "Move / choose a control"
+            cv2.circle(screen, center, 13, (0, 0, 0), 4, cv2.LINE_AA)
+            cv2.circle(screen, center, 13, ACCENT, 2, cv2.LINE_AA)
+            if progress:
+                cv2.ellipse(screen, center, (18, 18), -90, 0, int(progress * 360), ACCENT, 3, cv2.LINE_AA)
+    status = 'Drawing' if drawing else 'Move - pen up' if gesture == 'move' else 'Mouse ready' if mouse else 'Pen up / point at a control'
     text(screen, status, (20, 668), 0.65, ACCENT)
-    message = game.message if model_ready else "Practice mode: fetch the rainbow model to enable guessing."
-    lines, line = [], ""
+    message = game.message if model_ready else 'Practice mode: install a trained model to enable guessing.'
+    lines, line = [], ''
     for word in message.split():
-        candidate = f"{line} {word}".strip()
+        candidate = f'{line} {word}'.strip()
         if cv2.getTextSize(candidate, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0][0] > 630:
             lines.append(line)
             line = word
@@ -141,11 +131,16 @@ def render(frame, canvas, game, now, gesture="idle", points=None,
     for index, line in enumerate(lines[:2]):
         text(screen, line, (20, 705 + index * 23), 0.5)
     if game.guesses:
+        title = 'Not sure - closest guesses:' if game.uncertain else 'My guesses:'
+        text(screen, title, (700, 658), 0.5, MUTED)
         for index, guess in enumerate(game.guesses):
-            text(screen, f"{index + 1}. {guess.label}  {guess.score:.1%}", (700, 674 + index * 34), 0.65,
-                 ACCENT if index == 0 else MUTED)
+            text(screen, f'{index + 1}. {guess.label}  {guess.score:.1%}', (700, 690 + index * 31), 0.61,
+                 ACCENT if index == 0 and not game.uncertain else MUTED)
     else:
-        text(screen, "Thinking..." if game.state == "submitting" else "Click Submit to see my top 3 guesses.", (700, 699), 0.57, MUTED)
-    text(screen, "1 finger: draw / point   |   2 fingers: move   |   Hold over a control to click", (20, 771), 0.51, MUTED)
-    text(screen, "Mouse clicks work too.   N: new round   C: clear   Enter: submit   S: save   Q: quit", (20, 799), 0.47, MUTED)
+        text(screen, 'Thinking...' if game.state == 'submitting' else 'Click Submit to see my top 3 guesses.', (700, 699), 0.55, MUTED)
+    x, y, width, height = MODE_BUTTON
+    cv2.rectangle(screen, (x, y), (x + width, y + height), (64, 53, 44), -1)
+    text(screen, f'Click: {click_mode.title()} [P]', (x + 12, y + 27), 0.54)
+    text(screen, '1 finger: draw  |  2 fingers: move without ink  |  U: undo', (260, 771), 0.51, MUTED)
+    text(screen, 'N: new round   C: clear   Enter: submit   B: categories   S: save   Q: quit', (20, 804), 0.46, MUTED)
     return screen

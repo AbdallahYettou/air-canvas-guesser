@@ -5,10 +5,10 @@ import time
 import cv2
 import app
 from core.guesser import Guess
-from core.ui import BUTTONS, SWATCHES
+from core.ui import BUTTONS
 
 
-def test_mouse_can_select_white_clear_select_black_and_submit(tmp_path, monkeypatch):
+def test_mouse_can_clear_undo_browse_and_submit(tmp_path, monkeypatch):
     checkpoint = tmp_path / "model.pth"
     checkpoint.touch()
     monkeypatch.setattr(sys, "argv", ["app.py", "--mouse", "--model", str(checkpoint)])
@@ -40,7 +40,7 @@ def test_mouse_can_select_white_clear_select_black_and_submit(tmp_path, monkeypa
     monkeypatch.setattr(app, "render", render)
 
     def click(action):
-        x, y, width, height = {**BUTTONS, **SWATCHES}[action]
+        x, y, width, height = BUTTONS[action]
         state["callback"](cv2.EVENT_LBUTTONDOWN, x + width // 2, y + height // 2, 0, None)
         state["callback"](cv2.EVENT_LBUTTONUP, x + width // 2, y + height // 2, 0, None)
 
@@ -50,21 +50,24 @@ def test_mouse_can_select_white_clear_select_black_and_submit(tmp_path, monkeypa
         frame = state["frame"]
         if frame == 1:
             click("new")
-        elif frame == 2:
-            click("color:White")
-        elif frame in [3, 9]:
+        elif frame == 3:
             state["callback"](cv2.EVENT_LBUTTONDOWN, 800, 350, cv2.EVENT_FLAG_LBUTTON, None)
-        elif frame in [4, 10]:
+        elif frame == 4:
             state["callback"](cv2.EVENT_MOUSEMOVE, 840, 350, cv2.EVENT_FLAG_LBUTTON, None)
-        elif frame in [5, 11]:
+        elif frame == 5:
             state["callback"](cv2.EVENT_LBUTTONUP, 840, 350, 0, None)
         elif frame == 6:
             assert state["canvas"].image.any()
-            assert state["canvas"].color_name == "White"
             click("clear")
         elif frame == 7:
             assert not state["canvas"].image.any()
-            click("color:Black")
+            click("undo")
+        elif frame == 8:
+            assert state["canvas"].image.any()
+            click("categories")
+        elif frame == 9:
+            assert state["game"].paused_at is not None
+            return ord("b")
         elif frame == 12:
             click("submit")
         elif frame > 12 and state["game"].state == "result":
@@ -78,9 +81,8 @@ def test_mouse_can_select_white_clear_select_black_and_submit(tmp_path, monkeypa
     app.main()
     assert state["done"]
     assert len(received) == 1
-    assert received[0].shape == (480, 640, 4)
-    assert received[0][:, :, 3].any()
-    assert not received[0][:, :, :3].any()
+    assert received[0].shape == (480, 640)
+    assert received[0].any()
 
 
 def test_camera_hover_controls_do_not_draw_or_repeat_actions(tmp_path, monkeypatch):
@@ -106,7 +108,7 @@ def test_camera_hover_controls_do_not_draw_or_repeat_actions(tmp_path, monkeypat
             return [Guess('clock', 1.0)]
 
     def center(action):
-        x, y, width, height = {**BUTTONS, **SWATCHES}[action]
+        x, y, width, height = BUTTONS[action]
         return x + width / 2 - LEFT[0], y + height / 2 - LEFT[1]
 
     class Tracker:
@@ -118,14 +120,14 @@ def test_camera_hover_controls_do_not_draw_or_repeat_actions(tmp_path, monkeypat
             if number < 6:
                 return Gesture.MOVE, center('new'), None
             if number < 12:
-                return Gesture.MOVE, center('color:White'), None
-            if number < 17:
+                return Gesture.MOVE, (210, 230), None
+            if number < 19:
                 return Gesture.DRAW, (200 + number, 230), None
-            if number < 24:
+            if number < 27:
                 return Gesture.MOVE, center('clear'), None
-            if number < 29:
+            if number < 34:
                 return Gesture.DRAW, (250 + number, 240), None
-            if number < 35:
+            if number < 41:
                 # A palm/fist is classified IDLE, even when sitting over Clear.
                 return Gesture.IDLE, center('clear'), None
             return Gesture.MOVE, center('submit'), None
@@ -161,13 +163,12 @@ def test_camera_hover_controls_do_not_draw_or_repeat_actions(tmp_path, monkeypat
     def render(frame, canvas, game, now, **kwargs):
         number = state['frame']
         if number == 11:
-            assert canvas.color_name == 'White'
             assert not canvas.image.any(), 'Hovering over a toolbar drew ink'
             assert game.round_id == 1, 'Holding New round fired more than once'
-        if number == 23:
+        if number == 26:
             assert not canvas.image.any(), 'Clear did not empty the canvas'
             assert game.revision == 1, 'Holding Clear fired more than once'
-        if number == 34:
+        if number == 40:
             assert canvas.image.any(), 'An idle pose over Clear erased the drawing'
         if game.state == 'result':
             assert game.score == 100
@@ -187,4 +188,4 @@ def test_camera_hover_controls_do_not_draw_or_repeat_actions(tmp_path, monkeypat
     app.main()
     assert state['done']
     assert len(received) == 1
-    assert received[0][:, :, 3].any()
+    assert received[0].any()

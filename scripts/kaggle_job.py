@@ -10,7 +10,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / ".kaggle-run"
-SLUG = "air-canvas-100-v3"
+SLUG = "air-canvas-100-classes-v3"
 
 
 def prepare(username):

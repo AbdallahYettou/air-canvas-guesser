@@ -1,73 +1,103 @@
 import numpy as np
 from core.canvas import Canvas
-from core.colors import PALETTE, BOARD_COLOR
+from core.controls import CategoryBrowser, DwellPointer, PinchClick, PointerFilter, hit_test
 from core.game import Game
-from core.preprocess import prepare_sketch
-from core.ui import CONTROLS, LEFT, DwellPointer, control_at, camera_draw_area, control_enabled
+from core.ui import CONTROLS, LEFT, control_at, camera_draw_area, control_enabled
 
 
-def test_palette_drawings_preserve_color_and_identical_model_input():
-    expected = None
-    for name, color in PALETTE.items():
-        canvas = Canvas()
-        canvas.select_color(name)
-        for x in range(40, 100, 5):
-            canvas.update((x, 100), True)
-        assert tuple(canvas.display()[100, 50]) == color
-        prepared = prepare_sketch(canvas.snapshot())
-        if expected is None:
-            expected = prepared
-        np.testing.assert_array_equal(prepared, expected)
-        canvas.clear()
-        assert not canvas.image.any()
-        assert not canvas.snapshot().any()
-        assert tuple(canvas.display()[100, 50]) == BOARD_COLOR
-
-
-def test_switching_colors_breaks_the_stroke_and_snapshots_are_independent():
+def test_undo_restores_strokes_and_clear_but_does_not_cross_rounds():
     canvas = Canvas()
     canvas.update((30, 100), True)
+    first = canvas.snapshot()
+    canvas.break_stroke()
+    canvas.update((90, 100), True)
+    assert canvas.undo()
+    np.testing.assert_array_equal(canvas.image, first)
+    canvas.clear()
+    assert not canvas.image.any()
+    assert canvas.undo()
+    np.testing.assert_array_equal(canvas.image, first)
+    canvas.new_round()
+    assert not canvas.undo()
+    assert not canvas.image.any()
+    assert tuple(canvas.display()[100, 30]) == (255, 255, 255)
+
+
+def test_black_ink_snapshot_is_independent_and_strokes_remain_separate():
+    canvas = Canvas()
+    canvas.update((30, 100), True)
+    assert tuple(canvas.display()[100, 30]) == (0, 0, 0)
     snapshot = canvas.snapshot()
-    canvas.select_color("White")
+    canvas.break_stroke()
     canvas.update((100, 100), True)
     assert canvas.image[100, 60] == 0
     canvas.clear()
-    assert snapshot[:, :, 3].any()
+    assert snapshot.any()
 
 
 def test_visible_controls_match_hit_regions_and_are_outside_drawing_area():
-    assert len(CONTROLS) == 13
+    assert len(CONTROLS) == 6
     for action, (x, y, width, height) in CONTROLS.items():
-        center = (x + width / 2, y + height / 2)
+        center = x + width / 2, y + height / 2
         assert control_at(*center) == action
         assert not camera_draw_area((center[0] - LEFT[0], center[1] - LEFT[1]))
     assert camera_draw_area((320, 200))
     assert not camera_draw_area(None)
 
 
-def test_hover_click_fires_once_then_requires_leaving_button():
+def test_hover_tolerates_short_dropout_but_does_not_click_when_tracking_lost():
     pointer = DwellPointer()
-    assert pointer.update("submit", 0) is None
-    assert pointer.update("submit", 0.5) is None
-    assert pointer.update("submit", 0.8) == "submit"
-    assert pointer.update("submit", 2) is None
-    pointer.update(None, 3)
-    pointer.update("clear", 4)
-    assert pointer.update("clear", 4.8) is None
-    assert pointer.update("clear", 5.1) == "clear"
-
-
-def test_tracking_loss_cancels_hover_and_disabled_buttons_cannot_act():
-    pointer = DwellPointer()
-    pointer.update("clear", 0)
-    pointer.update(None, 0.9)
+    for index in range(6):
+        assert pointer.update('clear', index * 0.1) is None
+    elapsed = pointer.elapsed
+    assert pointer.update(None, 0.6) is None
+    assert pointer.update('clear', 0.65) is None
+    assert pointer.elapsed == elapsed
+    fired = [pointer.update('clear', t / 10) for t in range(7, 20)]
+    assert fired.count('clear') == 1
+    assert pointer.update('clear', 2) is None
+    pointer.update(None, 2.3)
+    assert pointer.target is None
     assert pointer.progress == 0
-    assert pointer.update("clear", 2) is None
-    assert pointer.update("clear", 2.2) is None
-    game = Game(["clock"])
-    assert not control_enabled("submit", game, True)
+
+
+def test_sticky_edges_do_not_switch_to_neighbor_until_entered():
+    controls = {'first': (0, 0, 100, 60), 'second': (120, 0, 100, 60)}
+    assert hit_test((108, 30), controls, 'first') == 'first'
+    assert hit_test((132, 30), controls, 'first') == 'second'
+    assert hit_test((108, 30), controls) is None
+
+
+def test_pointer_smoothing_reduces_jitter_and_never_hides_tracking_loss():
+    pointer = PointerFilter()
+    pointer.update((100, 100), 0)
+    smoothed = pointer.update((110, 100), 0.016)
+    assert 100 < smoothed[0] < 105
+    assert pointer.update(None, 0.03) is None
+    assert pointer.update((500, 300), 1) == (500, 300)
+
+
+def test_pinch_requires_open_then_close_over_a_stable_button():
+    click = PinchClick()
+    assert click.update('submit', 0.2, 0) is None
+    assert click.update('submit', 0.7, 0.1) is None
+    assert click.update('submit', 0.2, 0.3) == 'submit'
+    assert click.update('submit', 0.2, 0.4) is None
+    click.update(None, None, 0.5)
+    assert click.update('clear', 0.2, 1) is None
+
+
+def test_categories_page_only_through_installed_classes_and_buttons_disable():
+    browser = CategoryBrowser([f'class-{i:03}' for i in range(100)])
+    assert len(browser.visible) == 24
+    browser.turn(99)
+    assert len(browser.visible) == 4
+    assert browser.page == 4
+    game = Game(['clock'])
+    assert not control_enabled('submit', game, True)
     game.start(0)
-    assert control_enabled("submit", game, True)
-    assert not control_enabled("submit", game, False)
-    game.state = "submitting"
-    assert not control_enabled("clear", game, True)
+    assert control_enabled('submit', game, True)
+    assert not control_enabled('submit', game, False)
+    assert not control_enabled('undo', game, True, Canvas())
+    game.state = 'submitting'
+    assert not control_enabled('clear', game, True)

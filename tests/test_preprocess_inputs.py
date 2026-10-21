@@ -1,16 +1,16 @@
 import numpy as np
 import pytest
-from core.colors import PALETTE
+COLORS = [(0, 0, 0), (255, 255, 255), (0, 0, 255)]
 from core.preprocess import prepare_sketch, rasterize_strokes
 
 
-def test_every_color_including_black_and_white_has_the_same_shape():
+def test_legacy_bgra_inputs_preserve_the_shape_mask():
     strokes = [[[10, 100, 180], [20, 180, 20]], [[50, 140], [100, 100]]]
     expected = prepare_sketch(rasterize_strokes(strokes))
-    for color in PALETTE.values():
+    for color in COLORS:
         drawing = rasterize_strokes(strokes, colors=[color])
         np.testing.assert_array_equal(prepare_sketch(drawing), expected)
-    mixed = rasterize_strokes(strokes, colors=list(PALETTE.values()))
+    mixed = rasterize_strokes(strokes, colors=list(COLORS))
     np.testing.assert_array_equal(prepare_sketch(mixed), expected)
 
 

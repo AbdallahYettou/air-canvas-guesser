@@ -1,14 +1,21 @@
 # Air-Canvas Guesser
 
-Pick a color, draw with your index finger, and click **Submit** to get a guess.
+Draw with one finger, move with two fingers, and click Submit. A local desktop
+Pictionary game with black ink on a white board. No color palette or brush-size
+settings. Your webcam stays local, and guessing runs on the CPU.
 
-A local desktop game using OpenCV, MediaPipe hand tracking, and a small PyTorch
-sketch classifier. No paid API. Webcam images stay on your computer. Only the
-sketch classifier is trained, on Kaggle's free GPU tier.
+## Run
 
-## Start here
+The environment and working 20-class model are already installed in this workspace:
 
-Python 3.12 is the development version. From this folder:
+```bash
+.venv/bin/python app.py
+```
+
+Use `--mouse` to draw with a mouse, `--practice` to remove the timer, or
+`--camera 1` to try another webcam. Restart after downloading a new model.
+
+For a fresh setup with Python 3.12:
 
 ```bash
 python3 -m venv .venv
@@ -16,95 +23,88 @@ source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 python -m pip install -r requirements-cpu.txt
 python scripts/download_hand_model.py
-python app.py
 ```
 
-The tested Linux/Python 3.12 dependency versions are recorded in
-[requirements-lock.txt](requirements-lock.txt). Add `-c requirements-lock.txt` to
-both install commands to reproduce that environment; the CPU PyTorch index is
-still needed for the second command.
+The [dependency lock](requirements-lock.txt) records the tested Linux/Python 3.12
+versions. Add `-c requirements-lock.txt` to both install commands to reproduce them.
+An absent or incompatible model starts drawing practice without AI guesses.
 
-The environment, hand model, and trained rainbow model are installed locally.
-The new model reached **93.6% top-1** and **98.4% top-3** accuracy on 8,000 held-out
-sketches. See [rainbow results](docs/rainbow-training-results.json); the original
-model remains recorded in [the baseline results](docs/training-results.json).
-For a quick try, run `.venv/bin/python app.py`.
+## Controls
 
-On a fresh checkout, until the trained model is downloaded, the app opens in **practice mode**.
-Drawing works, but guesses and scoring are unavailable. It never invents guesses.
-
-No camera handy? Run `python app.py --mouse` and draw on the white board.
-Use `--camera 1` to select another webcam, or `--practice` to remove the timer.
-
-## Play
-
-Click **New round** or press **N**. You have 30 seconds to draw the displayed word.
-Hold your hand comfortably in view, with your palm facing the camera.
-
-| Action | Onscreen / hand control | Keyboard |
+| Action | Hand / onscreen control | Shortcut |
 | --- | --- | --- |
-| Draw | Index finger extended, other fingers curled | Mouse drag with `--mouse` |
-| Move without drawing | Index and middle fingers extended | Release the mouse |
-| Choose color | Click a color or point at it for 0.75 seconds | — |
-| Submit | Click **Submit** or point at it for 0.75 seconds | Enter |
-| Clear | Click **Clear** or point at it for 1 second | C |
-| New round | Use the button | N |
-| Save drawing | Use the button | S |
-| Quit | Close the window | Q or Escape |
+| Draw | Index finger extended; other fingers curled | Mouse drag in `--mouse` mode |
+| Move without ink | Index and middle fingers extended; lower fingers can relax | Release the mouse |
+| Submit | Click or hold over Submit | Enter |
+| Clear | Click or hold over Clear | C |
+| Undo | Undo the last stroke, or restore a cleared board | U |
+| New round | Click or hold over New round | N |
+| Categories | Browse what the installed model recognizes; timer pauses | B |
+| Click mode | Switch between Hover and Pinch | P |
+| Save | Save the visible black-and-white drawing as PNG | S |
+| Quit | Close the window | Q / Escape |
 
-The palette has **red, orange, yellow, green, blue, indigo, violet, black, and white**.
-A gray board keeps both black and white ink visible. Your selected color is outlined.
-Controls appear directly over the camera view and accept mouse clicks in both modes.
-For touchless use, point with one or two extended fingers and hold over a control;
-the progress bar shows when it will activate. Move away before clicking it again.
-Toolbars do not draw ink. Open palms and fists now only pause; they never clear or submit.
+The buttons are larger, with a separately smoothed cursor and a little tolerance
+at their edges. Hover shows a progress ring. Brief tracking dropouts pause the
+hold instead of clicking; longer losses reset it. Move away after a click to rearm.
 
-The timer also submits automatically. A correct first guess earns 100 points;
-the target appearing second or third earns 30. Each round scores once. Model
-percentages are softmax scores, not calibrated probabilities of being right.
-Clear works during drawing; after a result it clears the board and starts another
-round. Clear and Submit are disabled while a guess is being processed.
+For **Pinch** mode, point at a button with your thumb and index finger separated,
+then pinch them together. Release before another click. Pinching only clicks UI
+controls; it never clears or submits based on a standalone hand pose. Mouse clicks
+work in either mode. Palms and fists only pause drawing.
 
-## Get the trained model
+Move means **pen up**, not moving the existing picture. The status line explicitly
+shows `Move - pen up`. The pose rules use 3D hand landmarks when available and
+avoid drawing during brief transitions back from Move.
 
-The private training job is
-[Air Canvas Rainbow v2](https://www.kaggle.com/code/yettouabdallah/air-canvas-rainbow-v2).
-With Kaggle authenticated locally:
+Undo keeps the last 30 strokes/actions and does not cross into an earlier round.
+A round lasts 30 seconds; the timer submits automatically. Top-1 earns 100 points,
+and the target in second or third place earns 30. Each round scores once.
+
+Weak or nearly tied predictions show **Not sure**. This is a conservative display
+hint, not a guarantee that every unknown object will be detected. Scores are model
+probabilities, not certainty; the new model's temperature is fitted on validation data.
+
+## 100-class model: training in progress
+
+The current installed model knows **20 classes**. The category browser reads the
+installed model, so it will not promise classes that are still being trained.
+
+The [100-class list](training/classes.json) uses only the Google Quick, Draw!
+dataset. A private [Kaggle run](https://www.kaggle.com/code/yettouabdallah/air-canvas-100-classes-v3)
+compares the small CNN and a compact residual model on the same data and epoch
+budget. Both were checked for fast single-image CPU inference before launch.
+The final model is selected using validation accuracy, not the test set.
+
+When Kaggle reports COMPLETE:
 
 ```bash
+source .venv/bin/activate
 python scripts/kaggle_job.py status --username yettouabdallah
 python scripts/kaggle_job.py fetch --username yettouabdallah
 python app.py
 ```
 
-Fetch validates the model before installing it. Weights go into the ignored
-[models folder](models/); training metrics and logs go into `runs/air-canvas-rainbow-v2/`.
-For another account or a new training run, see [the training notes](docs/training.md).
+Fetching validates the checkpoint before replacing the local model. Data, model
+weights, credentials, and generated outputs stay out of Git. See
+[training notes](docs/training.md) and [current status](docs/status.md).
 
-## Checks and troubleshooting
+## Check and troubleshoot
 
 ```bash
-python -m pytest -q
-python app.py --preview captures/preview.png
+.venv/bin/python -m pytest -q
+.venv/bin/python app.py --preview captures/preview.png
 ```
 
-- **Camera won't open:** close other camera apps, check permissions, try `--camera 1`.
-- **Tracking feels unreliable:** improve lighting, show one hand, and keep it in frame.
-- **No desktop display:** run in a local desktop terminal. A remote notebook cannot
-  open your webcam or an OpenCV window. `--preview` works without a display.
-- **The AI guesses poorly:** draw a large, simple outline. It only knows the
-  [20 trained categories](training/classes.json). Air drawings differ from the dataset;
-  the held-out test score does not measure real webcam drawing accuracy.
-- **Model missing:** practice mode is expected until the Kaggle run finishes and
-  its output is downloaded. Do not rename the hand model into the sketch model.
-
-See [project status](docs/status.md) for completed checks and remaining work.
+- Close other camera apps if the camera cannot open; try `--camera 1` or `--mouse`.
+- Show one hand in good light. Start with your palm facing the camera.
+- If hovering feels difficult, try Pinch mode with P; keep the pointer within the button.
+- Run from a desktop terminal. A remote notebook cannot open this local GUI or webcam.
+- Dataset accuracy is not a measurement of real air-drawing accuracy. Live hand
+  comfort and recognition still need a human playtest.
 
 ## Credits
 
-- [MediaPipe Hand Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker)
-- [Google Quick, Draw! dataset](https://github.com/googlecreativelab/quickdraw-dataset),
-  licensed under CC BY 4.0. The training recipe uses recognized vector sketches.
-- [Kaggle CLI](https://github.com/Kaggle/kaggle-cli)
-
-Large model files, datasets, credentials, and generated outputs stay out of Git.
+- [Google Quick, Draw!](https://github.com/googlecreativelab/quickdraw-dataset), CC BY 4.0.
+- [MediaPipe Hand Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker).
+- [Kaggle CLI](https://github.com/Kaggle/kaggle-cli).

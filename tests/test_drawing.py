@@ -70,3 +70,25 @@ def test_landmark_rules_work_for_rotated_and_mirrored_hands():
         assert classify_landmarks(points * [-1, 1]) == gesture
         assert classify_landmarks(points @ np.array([[0, -1], [1, 0]])) == gesture
     assert classify_landmarks(None) == Gesture.IDLE
+
+
+def test_move_accepts_relaxed_lower_fingers_and_tilted_3d_pose():
+    points = np.zeros((21, 3))
+    for i, base in enumerate([5, 9, 13, 17]):
+        x = (i - 1.5) * 15
+        points[base] = (x, -40, 0)
+        points[base + 1] = (x, -70, 0)
+        points[base + 2] = (x, -85, 0)
+        # Lower fingers are relaxed, not tightly folded toward the wrist.
+        points[base + 3] = (x, -110 if i < 2 else -72, 0)
+    assert classify_landmarks(points) == Gesture.MOVE
+    rotation = np.array([[1, 0, 0], [0, 0.2, -np.sqrt(0.96)], [0, np.sqrt(0.96), 0.2]])
+    assert classify_landmarks(points @ rotation) == Gesture.MOVE
+
+
+def test_brief_draw_detection_during_move_never_connects_strokes():
+    controller = GestureController()
+    controller.update(Gesture.MOVE, 0)
+    assert not controller.update(Gesture.DRAW, 0.02).drawing
+    assert not controller.update(Gesture.DRAW, 0.15).drawing
+    assert controller.update(Gesture.DRAW, 0.25).drawing

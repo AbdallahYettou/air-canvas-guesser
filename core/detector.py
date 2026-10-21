@@ -36,7 +36,10 @@ class HandTracker:
             return Gesture.IDLE, None, None
         height, width = frame.shape[:2]
         points = np.array([(p.x * width, p.y * height) for p in result.hand_landmarks[0]])
-        return classify_landmarks(points), tuple(points[8]), points
+        pose = points
+        if result.hand_world_landmarks:
+            pose = np.array([(p.x, p.y, p.z) for p in result.hand_world_landmarks[0]])
+        return classify_landmarks(pose), tuple(points[8]), points
 
     def close(self):
         self.tracker.close()
